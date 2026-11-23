@@ -11,7 +11,7 @@ var SLOP=4;        // 手指移动超过多少像素才算拖动（小于此值�
 /* ================================= */
 
 /* ---- 数据：[代码, 初始价]；行情统一使用批量 updateQuotes 接口 ---- */
-var CATALOG=window.V9_INSTRUMENT_CATALOG;if(!Array.isArray(CATALOG)||CATALOG.length!==22)throw new Error("V9 instrument catalog unavailable");
+var CATALOG=window.V6_INSTRUMENT_CATALOG;if(!Array.isArray(CATALOG)||CATALOG.length!==22)throw new Error("V9 instrument catalog unavailable");
 var SYMS=CATALOG.map(function(item){return [item.symbol,0]});
 var N=SYMS.length,W=172,H=100,TAU=Math.PI*2,step=TAU/N,A=SHOW*step;
 
