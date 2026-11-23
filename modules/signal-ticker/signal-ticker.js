@@ -36,7 +36,7 @@ export function updateSignalLifecycle(payload, state = {}, now = Date.now()) {
   const previousFeed = new Set(sameDay && Array.isArray(state.lastFeedSymbols) ? state.lastFeedSymbols : []);
   const records = sameDay && state.records && typeof state.records === "object" ? { ...state.records } : {};
 
-  // Keep every detected symbol until the explicit daily reset is added.
+  // Retain detected symbols for the current Beijing day; the date-key change clears them.
   // A symbol already present in the feed is not duplicated.
   for (const symbol of incoming) {
     if (!previousFeed.has(symbol) && !Object.hasOwn(records, symbol)) {
