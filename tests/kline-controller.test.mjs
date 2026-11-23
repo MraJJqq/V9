@@ -218,20 +218,24 @@ test("failed latest-gap repair persists and restores its task after controller r
   } finally {
     firstController.destroy();
   }
-  let resolveRestored, resolveRepaired;
+  let resolveRestored;
   const restoredPromise = new Promise(resolve => { resolveRestored = resolve; });
-  const repairedPromise = new Promise(resolve => { resolveRepaired = resolve; });
   const complete = [candle(current - 2 * hour), candle(current - hour), candle(current)];
-  globalThis.fetch = async () => response(complete);
+  globalThis.fetch = async () => response(incomplete);
   const second = createGateKlineController({ instruments: [], isHidden: () => false, onState: state => {
     if (state.status === "repair-tasks-restored") resolveRestored(state);
-    if (state.status === "latest-gap-repaired") resolveRepaired(state);
   }});
   try {
     await second.select("SIM_RESTART", contract, "1H");
-    const [restored] = await wait(Promise.all([restoredPromise, repairedPromise]));
+    const restored = await wait(restoredPromise);
     assert.equal(restored.count, 1);
     assert.ok(restored.keys.includes(key));
+    for (let attempt = 0; second.state.historyQueue.running && attempt < 100; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    assert.equal(second.state.historyQueue.running, false);
+    globalThis.fetch = async () => response(complete);
+    await wait(second.refresh());
     assert.equal(await readStore("seriesMeta", "repairTask|" + key), null);
   } finally {
     second.destroy();
