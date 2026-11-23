@@ -180,6 +180,8 @@ html, body {
 
   tf.scrollTop = centerOf(2 * n + pressedIdx);
   mark(false);
+  // Parent sends the persisted selection only after this listener is ready.
+  window.parent.postMessage({ type: 'VEGAS_TIMEFRAME_READY' }, location.origin);
 })();
 </script>
 </body>
