@@ -24,7 +24,7 @@ test("invalid feed payload is rejected instead of being displayed as no signal",
   assert.throws(() => formatSignalText({ schema_version: 1, source: "other", symbols: [] }), /Invalid Bark signal feed/);
 });
 
-test("detected signals remain stored without a 12-hour expiry", () => {
+test("detected signals remain stored until explicit reset", () => {
   const first = updateSignalLifecycle(feed(["BTC"]), {});
   const second = updateSignalLifecycle(feed(["BTC", "ETH"]), first);
   assert.deepEqual(second.records, { BTC: true, ETH: true });
