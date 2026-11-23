@@ -206,12 +206,12 @@ test("failed latest-gap repair persists and restores its task after controller r
   const repairState = new Promise(resolve => { resolveRepairState = resolve; });
   const observedStates = [];
   const firstController = createGateKlineController({ instruments: [], isHidden: () => false, onState: state => {
-    observedStates.push(state);
-    if (state.status === "history-gap-pending" || state.status === "latest-refresh-failed") resolveRepairState(state);
+    observedStates.push({ status: state.status, error: state.error || null, count: state.count ?? null });
+    if (["history-gap-pending", "latest-refresh-failed", "latest-gap-repaired"].includes(state.status)) resolveRepairState(state);
   }});
   try {
     await firstController.select("SIM_RESTART", contract, "1H");
-    const repairResult = await wait(repairState);
+    const repairResult = await wait(repairState).catch(error => { throw new Error(String(error.message) + "; observed states: " + JSON.stringify(observedStates)); });
     assert.equal(repairResult.status, "history-gap-pending", "unexpected repair state: " + JSON.stringify(repairResult));
     const task = await readStore("seriesMeta", "repairTask|" + key);
     assert.equal(task.kind, "latest");
