@@ -25,7 +25,9 @@ html, body {
   overflow: hidden;
   background: transparent;
   font-family: 'Chakra Petch', sans-serif;
+  -webkit-user-select: none;
   user-select: none;
+  -webkit-touch-callout: none;
 }
 .tf {
   position: absolute;
@@ -94,6 +96,7 @@ html, body {
 <script>
 (() => {
   const tf = document.querySelector('.tf');
+  tf.addEventListener('contextmenu', e => e.preventDefault());
   const src = [...tf.querySelectorAll('button')];
   const n = src.length;
   const valid = ['1H', '2H', '4H', '8H', 'D'];
