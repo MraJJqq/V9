@@ -96,6 +96,8 @@ function requestTransition(patch){
 function switchTimeframe(next){
  if(!["1H","2H","4H","8H","D"].includes(next))return;
  if(next===desiredTarget().timeframe)return;
+ // Persist the user's selection immediately; the transition animation must not own state durability.
+ try{localStorage.setItem(STORAGE,next)}catch(_){}
  requestTransition({timeframe:next});
 }
 function scheduleSymbolRotation(){
@@ -146,7 +148,11 @@ lifecycle.listen(logoFrame,"load",()=>{if(!isRuntimeHidden()){if(transitionActiv
 lifecycle.listen(timeframeFrame,"load",sendTimeframeState);
 lifecycle.listen(window,"message",event=>{
  if(event.origin!==location.origin)return;
- if(event.source===timeframeFrame?.contentWindow&&event.data?.type==="VEGAS_TIMEFRAME_SELECT"){switchTimeframe(event.data.timeframe);return;}
+ if(event.source===timeframeFrame?.contentWindow){
+  if(event.data?.type==="VEGAS_TIMEFRAME_READY"){sendTimeframeState(desiredTarget().timeframe);return;}
+  if(event.data?.type==="VEGAS_TIMEFRAME_SELECT"){switchTimeframe(event.data.timeframe);return;}
+  return;
+ }
  if(event.source!==window)return;
  if(event.data?.type==="VEGAS_CARD_INTERACTION"&&typeof event.data.active==="boolean"){setInteractionLock("rolling-cards",event.data.active);return;}
  if(event.data?.type==="VEGAS_CARD_SELECT"&&typeof event.data.symbol==="string"){const i=sessionQueue.findIndex(x=>x.symbol===event.data.symbol);if(i>=0)transitionToIndex(i);}
