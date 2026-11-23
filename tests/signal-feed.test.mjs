@@ -4,6 +4,8 @@ import {
   formatSignalText,
   updateSignalLifecycle,
   BARK_SIGNAL_FEED_URL,
+  beijingDateKey,
+  isCurrentBeijingFeed,
 } from "../modules/signal-ticker/signal-ticker.js";
 
 const feed = symbols => ({ schema_version: 1, source: "Vegasbark", symbols });
@@ -45,4 +47,23 @@ test("a symbol is not duplicated while continuously present in the feed", () => 
   const absent = updateSignalLifecycle(feed([]), stillPresent);
   const detectedAgain = updateSignalLifecycle(feed(["BTC"]), absent);
   assert.deepEqual(detectedAgain.symbols, ["BTC"]);
+});
+
+test("Beijing date key changes exactly at midnight UTC+8", () => {
+  assert.equal(beijingDateKey("2026-11-23T15:59:59Z"), "2026-11-23");
+  assert.equal(beijingDateKey("2026-11-23T16:00:00Z"), "2026-11-24");
+});
+
+test("feed from a prior Beijing date is rejected after midnight", () => {
+  const payload = { ...feed(["BTC"]), generated_at: "2026-11-23T23:59:00+08:00" };
+  assert.equal(isCurrentBeijingFeed(payload, "2026-11-24T00:00:00+08:00"), false);
+  assert.equal(isCurrentBeijingFeed({ ...payload, generated_at: "2026-11-24T00:00:00+08:00" }, "2026-11-24T00:01:00+08:00"), true);
+});
+
+test("stored signals reset when the Beijing calendar date changes", () => {
+  const beforeMidnight = updateSignalLifecycle(feed(["BTC"]), {}, "2026-11-23T23:59:00+08:00");
+  const afterMidnight = updateSignalLifecycle(feed([]), beforeMidnight, "2026-11-24T00:00:00+08:00");
+  assert.deepEqual(afterMidnight.records, {});
+  assert.deepEqual(afterMidnight.symbols, []);
+  assert.equal(afterMidnight.dateKey, "2026-11-24");
 });
