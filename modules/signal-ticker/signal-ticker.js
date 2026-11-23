@@ -9,7 +9,7 @@ export function formatSignalText(payload) {
   const symbols = payload.symbols
     .map(value => String(value).trim())
     .filter(value => /^[A-Z0-9]{2,16}$/.test(value));
-  return symbols.length ? symbols.join(" ▰\u00A0") : "𝐍𝐨𝐒𝐢𝐠𝐧𝐚𝐥";
+  return symbols.length ? symbols.join(" ▰\u00A0") : "𝐍𝐨 𝐒𝐢𝐠𝐧𝐚𝐥";
 }
 
 export function updateSignalLifecycle(payload, state = {}, now = Date.now()) {
