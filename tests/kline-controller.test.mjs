@@ -211,6 +211,7 @@ test("failed latest-gap repair persists and restores its task after controller r
   }});
   try {
     await firstController.select("SIM_RESTART", contract, "1H");
+    console.log("SIM_RESTART observed states", JSON.stringify(observedStates));
     const repairResult = await wait(repairState).catch(error => { throw new Error(String(error.message) + "; observed states: " + JSON.stringify(observedStates)); });
     assert.equal(repairResult.status, "history-gap-pending", "unexpected repair state: " + JSON.stringify(repairResult));
     const task = await readStore("seriesMeta", "repairTask|" + key);
