@@ -4,7 +4,6 @@ import {
   formatSignalText,
   updateSignalLifecycle,
   BARK_SIGNAL_FEED_URL,
-  SIGNAL_TTL_MS
 } from "../modules/signal-ticker/signal-ticker.js";
 
 const feed = symbols => ({ schema_version: 1, source: "Vegasbark", symbols });
@@ -25,34 +24,26 @@ test("invalid feed payload is rejected instead of being displayed as no signal",
   assert.throws(() => formatSignalText({ schema_version: 1, source: "other", symbols: [] }), /Invalid Bark signal feed/);
 });
 
-test("each signal starts its own 12-hour timer when V9 first detects it", () => {
-  const start = 1_000_000;
-  const first = updateSignalLifecycle(feed(["BTC"]), {}, start);
-  const second = updateSignalLifecycle(feed(["BTC", "ETH"]), first, start + 60_000);
-  assert.deepEqual(second.records, { BTC: start, ETH: start + 60_000 });
+test("detected signals remain stored without a 12-hour expiry", () => {
+  const first = updateSignalLifecycle(feed(["BTC"]), {});
+  const second = updateSignalLifecycle(feed(["BTC", "ETH"]), first);
+  assert.deepEqual(second.records, { BTC: true, ETH: true });
   assert.deepEqual(second.symbols, ["BTC", "ETH"]);
 });
 
-test("signals remain visible until their own 12-hour expiry, independent of midnight", () => {
-  const start = 1_000_000;
-  const state = updateSignalLifecycle(feed(["BTC", "ETH"]), {}, start);
-  const later = updateSignalLifecycle(feed([]), state, start + SIGNAL_TTL_MS - 1);
+test("signals remain visible when they disappear from the Bark feed", () => {
+  const state = updateSignalLifecycle(feed(["BTC", "ETH"]), {});
+  const later = updateSignalLifecycle(feed([]), state);
+  assert.deepEqual(later.records, { BTC: true, ETH: true });
   assert.deepEqual(later.symbols, ["BTC", "ETH"]);
-  const expired = updateSignalLifecycle(feed([]), later, start + SIGNAL_TTL_MS);
-  assert.deepEqual(expired.records, {});
-  assert.deepEqual(expired.symbols, []);
 });
 
-test("an expired signal still present in the feed does not reappear", () => {
-  const start = 1_000_000;
-  const state = updateSignalLifecycle(feed(["BTC"]), {}, start);
-  const expired = updateSignalLifecycle(feed(["BTC"]), state, start + SIGNAL_TTL_MS);
-  assert.deepEqual(expired.records, {});
-  assert.deepEqual(expired.symbols, []);
-  const stillPresent = updateSignalLifecycle(feed(["BTC"]), expired, start + SIGNAL_TTL_MS + 15_000);
-  assert.deepEqual(stillPresent.symbols, []);
-  const absent = updateSignalLifecycle(feed([]), stillPresent, start + SIGNAL_TTL_MS + 30_000);
-  const detectedAgain = updateSignalLifecycle(feed(["BTC"]), absent, start + SIGNAL_TTL_MS + 45_000);
+test("a symbol is not duplicated while continuously present in the feed", () => {
+  const state = updateSignalLifecycle(feed(["BTC"]), {});
+  const stillPresent = updateSignalLifecycle(feed(["BTC"]), state);
+  assert.deepEqual(stillPresent.symbols, ["BTC"]);
+  const absent = updateSignalLifecycle(feed([]), stillPresent);
+  const detectedAgain = updateSignalLifecycle(feed(["BTC"]), absent);
   assert.deepEqual(detectedAgain.symbols, ["BTC"]);
 });
 
