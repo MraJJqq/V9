@@ -51,6 +51,18 @@ export function updateSignalLifecycle(payload, state = {}, now = Date.now()) {
   return { records, lastFeedSymbols: incoming, symbols, dateKey };
 }
 
+export function updateSignalLifecycleAfterFetchError(state = {}, now = Date.now()) {
+  const today = beijingDateKey(now);
+  const symbols = state.dateKey === today && Array.isArray(state.lastFeedSymbols)
+    ? state.lastFeedSymbols
+    : [];
+  return updateSignalLifecycle({
+    schema_version: 1,
+    source: "Vegasbark",
+    symbols
+  }, state, now);
+}
+
 function readSignalState() {
   try {
     const value = JSON.parse(localStorage.getItem(SIGNAL_STATE_KEY) || "{}");
@@ -107,11 +119,7 @@ function mountSignalTicker() {
       ticker.hidden = false;
     } catch (error) {
       if (error.name !== "AbortError") {
-        signalState = updateSignalLifecycle({
-          schema_version: 1,
-          source: "Vegasbark",
-          symbols: signalState.lastFeedSymbols || []
-        }, signalState);
+        signalState = updateSignalLifecycleAfterFetchError(signalState);
         writeSignalState(signalState);
         ticker.replaceChildren();
         ticker.textContent = formatSignalText({ schema_version: 1, source: "Vegasbark", symbols: signalState.symbols });
