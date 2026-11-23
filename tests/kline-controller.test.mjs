@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import "fake-indexeddb/auto";
 
-const { aggregate2H, createGateKlineController, expectedLatestCandleTimestamp, findCandleGaps, GATE_REQUEST_TIMEOUT_MS, hasLatestCoverage, hasRollingWindowCoverage, historyRetryDelay, rollingWindowStartTimestamp, twoHourRangeWindows, mergePendingWriteRows } = await import("../kline/gate-kline-controller.js");
+const { aggregate2H, createGateKlineController, expectedLatestCandleTimestamp, findCandleGaps, GATE_REQUEST_TIMEOUT_MS, hasLatestCoverage, historyRetryDelay, twoHourRangeWindows, mergePendingWriteRows } = await import("../kline/gate-kline-controller.js");
 const hour = 3600;
 const candle = (t, close = 100) => ({ t, o: close, h: close + 2, l: close - 2, c: close + 1 });
 const utc = value => Math.floor(Date.parse(value) / 1000);
