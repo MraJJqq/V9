@@ -10,7 +10,7 @@ let pageLifecycle=null;
 const isRuntimeHidden=()=>pageLifecycle?pageLifecycle.isSuspended():document.hidden;
 const app=document.getElementById("app"),rollingFrame=document.getElementById("rolling-cards-frame");
 const logoFrame=document.getElementById("logo-frame"),timeframeFrame=document.getElementById("timeframe-frame");
-const klineHost=document.getElementById("kline-host"),STORAGE="vegas-v6-selected-timeframe",RANDOM_START="vegas-v6-last-random-start";
+const klineHost=document.getElementById("kline-host"),STORAGE="vegas-v9-selected-timeframe",RANDOM_START="vegas-v9-last-random-start";
 let timeframe="4H",destroyed=false,logoIndex=0,rotationTimer=null,transitionTimer=null,interactionResumeTimer=null,userRotationPaused=false;
 let transitionActive=false,activeTarget=null,queuedTarget=null;
 let quoteBusy=false,foregroundInterval=null,quoteAbort=null;

@@ -150,6 +150,9 @@ test("host, cards, timeframe and Logo retain their message integration contracts
   const timeframe = await source("modules/timeframe-switch/index.html");
   const logo = await source("modules/logo/logo.js");
   assert.match(runtime, /event\.origin!==location\.origin/);
+  assert.match(runtime, /vegas-v9-selected-timeframe/);
+  assert.match(runtime, /vegas-v9-last-random-start/);
+  assert.doesNotMatch(runtime, /vegas-v6-selected-timeframe|vegas-v6-last-random-start/);
   assert.match(runtime, /event\.source===timeframeFrame\?\.contentWindow/);
   assert.match(runtime, /VEGAS_CARD_INTERACTION/);
   assert.match(runtime, /VEGAS_CARD_SELECT/);
