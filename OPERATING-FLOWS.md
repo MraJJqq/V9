@@ -34,7 +34,7 @@ K线父容器
 
 ## 共享接口
 - 品种目录：`modules/shared/instrument-catalog.js`。
-- Gate合约池：`modules/shared/universe-v6.js`。
+- Gate合约池：`modules/shared/universe-v9.js`。
 - 卡片报价与排序接口：`window.updateQuotes`、`window.setCardOrder`。
 - K线、EMA共享父容器、视窗坐标、时间索引与DPR。
 - 全屏动态适配只负责外层几何、安全区和横竖屏，不接管内部缩放。

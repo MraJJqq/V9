@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 await import("../modules/shared/instrument-catalog.js");
-const { INSTRUMENTS, GATE_CONTRACTS } = await import("../modules/shared/universe-v6.js");
+const { INSTRUMENTS, GATE_CONTRACTS } = await import("../modules/shared/universe-v9.js");
 const root = new URL("../", import.meta.url);
 const source = path => readFile(new URL(path, root), "utf8");
 
@@ -23,7 +23,7 @@ test("instrument categories are explicit and preserve the existing 18/4 grouping
 test("cards expose only batch quote updates and direct card ordering", async () => {
   const cards = await source("cards/rolling-cards.js");
   assert.match(cards, /window\.updateQuotes=function/);
-  assert.match(cards, /window\.V6_INSTRUMENT_CATALOG/);
+  assert.match(cards, /window\.V9_INSTRUMENT_CATALOG/);
   assert.doesNotMatch(cards, /V9_INSTRUMENT_CATALOG/);
   assert.match(cards, /window\.setCardOrder=function/);
   assert.doesNotMatch(cards, /window\.updateQuote\s*=/);
@@ -60,7 +60,7 @@ test("five timeframe controls and the full-screen stylesheet own the outer ifram
 
 test("K-line host fills the viewport and both canvases share its geometry and viewport", async () => {
   const full = await source("assets/css/full-screen-dynamic.css");
-  const view = await source("kline/v6-kline-view.js");
+  const view = await source("kline/v9-kline-view.js");
   assert.match(full, /#app\{[^}]*position:relative/);
   assert.match(full, /#kline-host\{[^}]*position:absolute;inset:0;width:100%;height:100%/);
   assert.match(view, /host\.appendChild\(canvas\)/);
@@ -84,7 +84,7 @@ test("lifecycle scope disposes owned resources once, including child scopes", as
 });
 
 test("page lifecycle suspends and resumes once across visibility and BFCache events", async () => {
-  const { createPageLifecycle } = await import("../modules/shared/page-lifecycle-v6.js");
+  const { createPageLifecycle } = await import("../modules/shared/page-lifecycle-v9.js");
   const documentRef = new EventTarget(), windowRef = new EventTarget();
   documentRef.hidden = false;
   let suspended = 0, resumed = 0;
@@ -129,7 +129,7 @@ test("responsive layout contracts retain dynamic viewport and safe-area handling
 
 
 test("K-line touch gestures retain pan, pinch zoom and host interaction locking", async () => {
-  const view = await source("kline/v6-kline-view.js");
+  const view = await source("kline/v9-kline-view.js");
   assert.match(view, /pointerdown/);
   assert.match(view, /pointermove/);
   assert.match(view, /startPinch/);
@@ -147,7 +147,7 @@ test("all 22 catalog logos resolve to real local SVG assets", async () => {
 });
 
 test("host, cards, timeframe and Logo retain their message integration contracts", async () => {
-  const runtime = await source("modules/v6-runtime.js");
+  const runtime = await source("modules/v9-runtime.js");
   const cards = await source("cards/rolling-cards.js");
   const timeframe = await source("modules/timeframe-switch/index.html");
   const logo = await source("modules/logo/logo.js");
@@ -171,7 +171,7 @@ test("host, cards, timeframe and Logo retain their message integration contracts
 });
 
 test("Gate quotes retain bounded foreground refresh and failure handling", async () => {
-  const runtime = await source("modules/v6-runtime.js");
+  const runtime = await source("modules/v9-runtime.js");
   assert.match(runtime, /300000/);
   assert.match(runtime, /api\.gateio\.ws\/api\/v4\/futures\/usdt\/tickers/);
   assert.match(runtime, /attempt<3/);
@@ -181,8 +181,8 @@ test("Gate quotes retain bounded foreground refresh and failure handling", async
 
 test("EMA renders from available local history while backfill continues", async () => {
   const controller = await readFile(new URL("../kline/gate-kline-controller.js", import.meta.url), "utf8");
-  const overlay = await readFile(new URL("../kline/v6-vegas-ema.js", import.meta.url), "utf8");
-  const view = await readFile(new URL("../kline/v6-kline-view.js", import.meta.url), "utf8");
+  const overlay = await readFile(new URL("../kline/v9-vegas-ema.js", import.meta.url), "utf8");
+  const view = await readFile(new URL("../kline/v9-kline-view.js", import.meta.url), "utf8");
   assert.doesNotMatch(controller, /cloudDataBase|syncCloudSnapshot|cloudLoaded|cloudDataReady|market-data/);
   assert.match(controller, /async function readEmaSeries\(key,rows,db\)/);
   assert.match(controller, /timezone=utc8/);

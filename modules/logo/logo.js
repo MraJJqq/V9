@@ -1,7 +1,7 @@
 import { createLifecycleScope } from "../shared/lifecycle.js?v=v9-local-kline-20261123-1";
 const lifecycle=createLifecycleScope();
-const CATALOG=globalThis.V6_INSTRUMENT_CATALOG;
-if(!Array.isArray(CATALOG)||CATALOG.length!==22)throw new Error("V6 instrument catalog unavailable");
+const CATALOG=globalThis.V9_INSTRUMENT_CATALOG;
+if(!Array.isArray(CATALOG)||CATALOG.length!==22)throw new Error("V9 instrument catalog unavailable");
 const LOGOS=Object.freeze(Object.fromEntries(CATALOG.map(item=>[item.symbol,[item.logo,item.logoGroup]])));
 const ROOT="../../assets/logos/";
 const TIMEFRAME_MS=Object.freeze({"1H":3600000,"2H":7200000,"4H":14400000,"8H":28800000,"D":86400000});

@@ -1,5 +1,5 @@
-/** V6 Gate runtime configuration. V6_CONFIG is retained for V6 runtime configuration. */
-export const V6_CONFIG=Object.freeze({
- app:Object.freeze({name:"VEGAS V6",instrumentCount:22,timeframe:"4H",timeframeSeconds:14_400,historyTargetDays:null,marketDataSource:"Gate"}),
+/** V9 Gate runtime configuration. V9_CONFIG is retained as the V9 runtime configuration. */
+export const V9_CONFIG=Object.freeze({
+ app:Object.freeze({name:"VEGAS V9",instrumentCount:22,timeframe:"4H",timeframeSeconds:14_400,historyTargetDays:null,marketDataSource:"Gate"}),
  visual:Object.freeze({accidentalTextSelection:false})
 });

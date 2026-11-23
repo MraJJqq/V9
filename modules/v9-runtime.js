@@ -1,7 +1,7 @@
 import { createLifecycleScope } from "./shared/lifecycle.js";
-import { createPageLifecycle } from "./shared/page-lifecycle-v6.js";
-import { INSTRUMENTS, GATE_CONTRACTS, createSessionQueue } from "./shared/universe-v6.js";
-import { createV6KlineView } from "../kline/v6-kline-view.js?v=v9-local-kline-20261123-1";
+import { createPageLifecycle } from "./shared/page-lifecycle-v9.js";
+import { INSTRUMENTS, GATE_CONTRACTS, createSessionQueue } from "./shared/universe-v9.js";
+import { createV9KlineView } from "../kline/v9-kline-view.js?v=v9-local-kline-20261123-1";
 import { createGateKlineController } from "../kline/gate-kline-controller.js?v=v9-local-kline-20261123-1";
 import { createKlineRotationPause } from "./kline-rotation-pause.js?v=v9-local-kline-20261123-1";
 
@@ -22,9 +22,9 @@ const firstIndex=sessionQueue.findIndex(item=>item.symbol!==previous);
 if(firstIndex>0)sessionQueue=[...sessionQueue.slice(firstIndex),...sessionQueue.slice(0,firstIndex)];
 else if(firstIndex<0&&sessionQueue.length>1)sessionQueue.push(sessionQueue.shift());
 try{localStorage.setItem(RANDOM_START,sessionQueue[0].symbol)}catch(_){}
-if(INSTRUMENTS.length!==22||Object.keys(GATE_CONTRACTS).length!==INSTRUMENTS.length)throw new Error("V6 instrument universe mismatch");
+if(INSTRUMENTS.length!==22||Object.keys(GATE_CONTRACTS).length!==INSTRUMENTS.length)throw new Error("V9 instrument universe mismatch");
 const GATE_INSTRUMENTS=INSTRUMENTS.map(item=>Object.freeze({...item,gateContract:GATE_CONTRACTS[item.symbol]}));
-if(GATE_INSTRUMENTS.some(item=>!item.gateContract))throw new Error("V6 Gate contract mapping incomplete");
+if(GATE_INSTRUMENTS.some(item=>!item.gateContract))throw new Error("V9 Gate contract mapping incomplete");
 function sendLogoSymbol(index=logoIndex){const item=sessionQueue[index];if(item&&logoFrame?.contentWindow)logoFrame.contentWindow.postMessage({type:"VEGAS_LOGO_SET_SYMBOL",symbol:item.symbol},location.origin);}
 function sendLogoTimeframe(value=timeframe){if(logoFrame?.contentWindow)logoFrame.contentWindow.postMessage({type:"VEGAS_LOGO_SET_TIMEFRAME",timeframe:value},location.origin);}
 function sendLogoState(index=logoIndex,value=timeframe){sendLogoSymbol(index);sendLogoTimeframe(value);}
@@ -36,7 +36,7 @@ function setInteractionLock(source,active){
  if(interactionLocks.size||interactionResumeTimer!==null||transitionActive)return;
  interactionResumeTimer=setTimeout(()=>{interactionResumeTimer=null;if(!destroyed&&!isRuntimeHidden()&&!interactionLocks.size&&!userRotationPaused)scheduleSymbolRotation();},0);
 }
-const view=createV6KlineView({host:klineHost,onInteractionChange:setInteractionLock});
+const view=createV9KlineView({host:klineHost,onInteractionChange:setInteractionLock});
 function setUserRotationPaused(paused){
  if(userRotationPaused===paused)return;
  userRotationPaused=paused;
@@ -48,10 +48,10 @@ function setUserRotationPaused(paused){
  if(!destroyed&&!isRuntimeHidden()&&!interactionLocks.size&&!transitionActive)scheduleSymbolRotation();
 }
 const rotationPause=createKlineRotationPause({target:klineHost,onToggle:()=>setUserRotationPaused(!userRotationPaused)});
-const controller=createGateKlineController({frame:{contentWindow:view},instruments:GATE_INSTRUMENTS,isHidden:isRuntimeHidden,onState:s=>{if(s.status==="request-failed"||s.status==="cache-unavailable"||s.status==="cache-write-failed")console.warn("[VEGAS V6 data]",s);}});
-lifecycle.listen(window,"unhandledrejection",event=>console.error("[VEGAS V6 unhandled rejection]",event.reason));
-lifecycle.listen(window,"error",event=>console.error("[VEGAS V6 runtime error]",event.message,event.filename,event.lineno));
-function selectSymbol(symbol){const item=INSTRUMENTS.find(x=>x.symbol===symbol),contract=GATE_CONTRACTS[symbol];if(!item||!contract){console.warn("[VEGAS V6] Unknown symbol:",symbol);return false;}void controller.select(symbol,contract,timeframe);return true;}
+const controller=createGateKlineController({frame:{contentWindow:view},instruments:GATE_INSTRUMENTS,isHidden:isRuntimeHidden,onState:s=>{if(s.status==="request-failed"||s.status==="cache-unavailable"||s.status==="cache-write-failed")console.warn("[VEGAS V9 data]",s);}});
+lifecycle.listen(window,"unhandledrejection",event=>console.error("[VEGAS V9 unhandled rejection]",event.reason));
+lifecycle.listen(window,"error",event=>console.error("[VEGAS V9 runtime error]",event.message,event.filename,event.lineno));
+function selectSymbol(symbol){const item=INSTRUMENTS.find(x=>x.symbol===symbol),contract=GATE_CONTRACTS[symbol];if(!item||!contract){console.warn("[VEGAS V9] Unknown symbol:",symbol);return false;}void controller.select(symbol,contract,timeframe);return true;}
 function clearRotationTimers(){if(rotationTimer!==null){clearTimeout(rotationTimer);rotationTimer=null;}if(transitionTimer!==null){clearTimeout(transitionTimer);transitionTimer=null;}}
 function desiredTarget(){return queuedTarget||activeTarget||{symbolIndex:logoIndex,timeframe};}
 function beginTransition(target){
@@ -133,7 +133,7 @@ async function refreshCardQuotes(){
    if(open>0&&Number.isFinite(open))updates.push([item.index,last,open]);
   }
   if(!destroyed&&!isRuntimeHidden())window.updateQuotes(updates);
- }catch(error){if(error.name!=="AbortError"&&!isRuntimeHidden()&&!destroyed)console.warn("[VEGAS V6 Gate card quotes]",error);}
+ }catch(error){if(error.name!=="AbortError"&&!isRuntimeHidden()&&!destroyed)console.warn("[VEGAS V9 Gate card quotes]",error);}
  finally{if(quoteAbort===abort)quoteAbort=null;quoteBusy=false;}
 }
 function startForegroundTimers(){if(destroyed||isRuntimeHidden())return;if(!foregroundInterval)foregroundInterval=lifecycle.interval(()=>{refreshCardQuotes();void controller.refresh();},300000);}
@@ -165,5 +165,5 @@ function initializeCards(){
 }
 if(!initializeCards()&&document.readyState!=="complete")lifecycle.listen(window,"load",initializeCards,{once:true});
 selectSymbol(sessionQueue[logoIndex].symbol);sendTimeframeState();startSymbolRotation();refreshCardQuotes();startForegroundTimers();
-window.V6Kline=Object.freeze({select:selectSymbol,setTimeframe:switchTimeframe,refresh:()=>controller.refresh(),get state(){return controller.state;}});
-console.info("[VEGAS V6] mounted",INSTRUMENTS.length,"Gate K-line + 5 timeframes + local cards");
+window.V9Kline=Object.freeze({select:selectSymbol,setTimeframe:switchTimeframe,refresh:()=>controller.refresh(),get state(){return controller.state;}});
+console.info("[VEGAS V9] mounted",INSTRUMENTS.length,"Gate K-line + 5 timeframes + local cards");

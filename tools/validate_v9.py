@@ -98,10 +98,10 @@ for old_name in ("universe-v4.js", "page-lifecycle-v4.js",
     if (ROOT / "modules/shared" / old_name).exists() or (ROOT / "kline" / old_name).exists():
         fail(f"legacy module file remains: {old_name}")
 
-runtime = (ROOT / "modules/v6-runtime.js").read_text(encoding="utf-8")
-if "universe-v6.js" not in runtime or "page-lifecycle-v6.js" not in runtime:
+runtime = (ROOT / "modules/v9-runtime.js").read_text(encoding="utf-8")
+if "universe-v9.js" not in runtime or "page-lifecycle-v9.js" not in runtime:
     fail("runtime is not wired exclusively to the V9 shared infrastructure")
-if "createV6KlineView" not in runtime:
+if "createV9KlineView" not in runtime:
     fail("runtime is not wired to the V9 K-line view")
 
 # Guard the global layout contract: the timeframe iframe's outer size has one owner.
@@ -117,7 +117,7 @@ if not re.search(r"#app\s*\{[^}]*position\s*:\s*relative", full_screen_source):
     fail("global full-screen stylesheet must establish #app as the K-line positioning root")
 if not re.search(r"#kline-host\s*\{[^}]*position\s*:\s*absolute[^}]*inset\s*:\s*0", full_screen_source):
     fail("K-line host must fill the complete #app viewport")
-kline_view_source = (ROOT / "kline/v6-kline-view.js").read_text(encoding="utf-8")
+kline_view_source = (ROOT / "kline/v9-kline-view.js").read_text(encoding="utf-8")
 if "host.appendChild(canvas)" not in kline_view_source or "host.appendChild(overlayCanvas)" not in kline_view_source:
     fail("K-line and EMA canvases must share the full-screen K-line host")
 if "observer.observe(host)" not in kline_view_source or "overlay.setView(viewport())" not in kline_view_source:
@@ -177,10 +177,10 @@ for page in html_files:
         static_versions.add(match.group(2))
 if static_versions != {STATIC_ASSET_VERSION, KLINE_SYNC_VERSION}:
     fail(f"static CSS/JS cache versions are not unified: {sorted(static_versions)}")
-if f'modules/v6-runtime.js?v={KLINE_SYNC_VERSION}' not in (ROOT / "index.html").read_text(encoding="utf-8"):
+if f'modules/v9-runtime.js?v={KLINE_SYNC_VERSION}' not in (ROOT / "index.html").read_text(encoding="utf-8"):
     fail("V9 runtime entry cache version is not refreshed for synchronized K-line rendering")
-runtime_source = (ROOT / "modules/v6-runtime.js").read_text(encoding="utf-8")
-if f'v6-kline-view.js?v={KLINE_SYNC_VERSION}' not in runtime_source:
+runtime_source = (ROOT / "modules/v9-runtime.js").read_text(encoding="utf-8")
+if f'v9-kline-view.js?v={KLINE_SYNC_VERSION}' not in runtime_source:
     fail("V9 K-line view import cache version is not refreshed")
 if f'gate-kline-controller.js?v={KLINE_SYNC_VERSION}' not in runtime_source:
     fail("Gate K-line controller import cache version is not refreshed")
@@ -212,7 +212,7 @@ if "scheduleHistoryRetry" not in controller or "historyRetryTimer" not in contro
 
 # The shared timeframe system is fixed to five periods, including 2H aggregation.
 timeframe = (ROOT / "modules/timeframe-switch/index.html").read_text(encoding="utf-8")
-runtime = (ROOT / "modules/v6-runtime.js").read_text(encoding="utf-8")
+runtime = (ROOT / "modules/v9-runtime.js").read_text(encoding="utf-8")
 logo = (ROOT / "modules/logo/logo.js").read_text(encoding="utf-8")
 controller = (ROOT / "kline/gate-kline-controller.js").read_text(encoding="utf-8")
 for label, source in (("timeframe selector", timeframe), ("runtime", runtime), ("logo countdown", logo), ("K-line controller", controller)):
@@ -229,7 +229,7 @@ if "window.updateQuote=" in card_source or "VEGAS_SET_CARD_ORDER" in card_source
     fail("obsolete single-quote or message-based card-order API remains")
 if "window.updateQuotes=function" not in card_source or "window.setCardOrder=function" not in card_source:
     fail("card batch quote and direct order APIs are required")
-universe_source = (ROOT / "modules/shared/universe-v6.js").read_text(encoding="utf-8")
+universe_source = (ROOT / "modules/shared/universe-v9.js").read_text(encoding="utf-8")
 if "category:index<" in universe_source or "...item,index" not in universe_source:
     fail("instrument categories must come from explicit catalog fields, not array positions")
 
@@ -238,7 +238,7 @@ catalog = (ROOT / "modules/shared/instrument-catalog.js").read_text(encoding="ut
 catalog_symbols = re.findall(r'\["([A-Z0-9]+)","[A-Z0-9]+USDT"', catalog)
 if len(catalog_symbols) != 22 or len(set(catalog_symbols)) != 22:
     fail(f"local instrument catalog must contain exactly 22 unique symbols; found {len(catalog_symbols)}")
-runtime = (ROOT / "modules/v6-runtime.js").read_text(encoding="utf-8")
+runtime = (ROOT / "modules/v9-runtime.js").read_text(encoding="utf-8")
 if "INSTRUMENTS.length!==22" not in runtime:
     fail("V8 runtime must use the 22-symbol local pool")
 

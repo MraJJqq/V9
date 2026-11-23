@@ -1,6 +1,6 @@
-import{createVegasEmaOverlay}from"./v6-vegas-ema.js?v=v9-local-kline-20261123-1";
-import{VIEWPORT_STORAGE_KEY,captureViewportState,normalizeViewportState,removeLegacyViewportState,resolveViewportRight}from"./v6-viewport-state.js?v=v9-local-kline-20261123-1";
-export function createV6KlineView({host,onInteractionChange=()=>{}}){
+import{createVegasEmaOverlay}from"./v9-vegas-ema.js?v=v9-local-kline-20261123-1";
+import{VIEWPORT_STORAGE_KEY,captureViewportState,normalizeViewportState,removeLegacyViewportState,resolveViewportRight}from"./v9-viewport-state.js?v=v9-local-kline-20261123-1";
+export function createV9KlineView({host,onInteractionChange=()=>{}}){
 if(!host)throw new TypeError("K-line host element is required");
 const abort=new AbortController(),{signal}=abort,canvas=document.createElement("canvas");
 canvas.style.cssText="position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0;background:transparent;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none";host.appendChild(canvas);
@@ -52,8 +52,8 @@ function setHistoryStatus(symbol,count,complete,state,error,timeframe="4H"){
  const status=state||(complete?(count>=676?"ready":"exchange-history-exhausted"):"incomplete");
  host.dataset.emaHistoryStatus=status;host.dataset.emaHistorySymbol=symbol;host.dataset.emaHistoryCount=String(count);
  host.dataset.emaAvailablePeriods=[12,36,43,144,169,576,676].filter(period=>count>=period).join(",");
- if(status==="exchange-history-exhausted")console.warn("[VEGAS V6] "+symbol+" exchange history exhausted at "+count+" "+timeframe+" candles; available EMA periods: "+host.dataset.emaAvailablePeriods);
- if(status==="request-failed")console.warn("[VEGAS V6] "+symbol+" history request failed; retained "+count+" cached/latest "+timeframe+" candles.",error||"");
+ if(status==="exchange-history-exhausted")console.warn("[VEGAS V9] "+symbol+" exchange history exhausted at "+count+" "+timeframe+" candles; available EMA periods: "+host.dataset.emaAvailablePeriods);
+ if(status==="request-failed")console.warn("[VEGAS V9] "+symbol+" history request failed; retained "+count+" cached/latest "+timeframe+" candles.",error||"");
 }
 function destroy(){if(destroyed)return;resetInteraction();persistViewport();destroyed=true;abort.abort();observer.disconnect();if(raf)cancelAnimationFrame(raf);overlay.destroy();canvas.remove();overlayCanvas.remove();C=[]}
 host.classList.add("is-ready");return Object.freeze({setCandles,setVegasEmaCandles,setVegasEmaValues,setHistoryStatus,migrateLegacyViewportKey,destroy})

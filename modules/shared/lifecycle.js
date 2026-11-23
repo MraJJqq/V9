@@ -84,7 +84,7 @@ export function createLifecycleScope() {
       try {
         release();
       } catch (error) {
-        console.warn("[VEGAS V6 lifecycle] cleanup failed", error);
+        console.warn("[VEGAS V9 lifecycle] cleanup failed", error);
       }
     }
   }
