@@ -6,6 +6,7 @@ import {
   BARK_SIGNAL_FEED_URL,
   beijingDateKey,
   isCurrentBeijingFeed,
+  updateSignalLifecycleAfterFetchError,
 } from "../modules/signal-ticker/signal-ticker.js";
 
 const feed = symbols => ({ schema_version: 1, source: "Vegasbark", symbols });
@@ -58,6 +59,21 @@ test("feed from a prior Beijing date is rejected after midnight", () => {
   const payload = { ...feed(["BTC"]), generated_at: "2026-11-23T23:59:00+08:00" };
   assert.equal(isCurrentBeijingFeed(payload, "2026-11-24T00:00:00+08:00"), false);
   assert.equal(isCurrentBeijingFeed({ ...payload, generated_at: "2026-11-24T00:00:00+08:00" }, "2026-11-24T00:01:00+08:00"), true);
+});
+
+test("fetch failure cannot carry yesterday's cached symbols into the new Beijing day", () => {
+  const yesterday = updateSignalLifecycle(feed(["BTC"]), {}, "2026-11-23T23:59:00+08:00");
+  const afterMidnightFailure = updateSignalLifecycleAfterFetchError(yesterday, "2026-11-24T00:01:00+08:00");
+  assert.deepEqual(afterMidnightFailure.records, {});
+  assert.deepEqual(afterMidnightFailure.symbols, []);
+  assert.deepEqual(afterMidnightFailure.lastFeedSymbols, []);
+  assert.equal(afterMidnightFailure.dateKey, "2026-11-24");
+});
+
+test("fetch failure preserves today's cached symbols", () => {
+  const today = updateSignalLifecycle(feed(["BTC"]), {}, "2026-11-24T09:00:00+08:00");
+  const afterFailure = updateSignalLifecycleAfterFetchError(today, "2026-11-24T09:01:00+08:00");
+  assert.deepEqual(afterFailure.symbols, ["BTC"]);
 });
 
 test("stored signals reset when the Beijing calendar date changes", () => {
