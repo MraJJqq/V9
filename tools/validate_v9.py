@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static integrity checks for the standalone VEGAS V6 Pages site."""
+"""Static integrity checks for the standalone VEGAS V9 Pages site."""
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit, unquote
@@ -100,9 +100,9 @@ for old_name in ("universe-v4.js", "page-lifecycle-v4.js",
 
 runtime = (ROOT / "modules/v6-runtime.js").read_text(encoding="utf-8")
 if "universe-v6.js" not in runtime or "page-lifecycle-v6.js" not in runtime:
-    fail("runtime is not wired exclusively to V6 shared modules")
+    fail("runtime is not wired exclusively to the V9 shared infrastructure")
 if "createV6KlineView" not in runtime:
-    fail("runtime is not wired to the V6 K-line view")
+    fail("runtime is not wired to the V9 K-line view")
 
 # Guard the global layout contract: the timeframe iframe's outer size has one owner.
 timeframe_host_path = ROOT / "modules/timeframe-switch/host.css"
@@ -148,23 +148,23 @@ if "KLINE_GUARANTEE_DAYS=90" not in controller or "hasRollingWindowCoverage" not
 if "latest-verified" not in controller:
     fail("successful gap repair does not mark the series verified")
 if 'DB_NAME="vegas-v9-market-cache"' not in controller:
-    fail("Gate IndexedDB namespace is not V6-isolated")
+    fail("Gate IndexedDB namespace is not V9-isolated")
 
 controller = (ROOT / "kline/gate-kline-controller.js").read_text(encoding="utf-8")
 if 'DB_VERSION=3' not in controller or 'META_STORE="seriesMeta"' not in controller or 'EMA_STORE="emaRows"' not in controller:
-    fail("V6 persistent EMA cache schema version 3 is missing")
+    fail("V9 persistent EMA cache schema version 3 is missing")
 if "ensureEmaSeries" not in controller or "updateLatestEma" not in controller:
-    fail("V6 full-history and incremental EMA cache handling is missing")
+    fail("V9 full-history and incremental EMA cache handling is missing")
 if "MEMORY_MAX_PER_SERIES=12000" not in controller or "MEMORY_MAX_TOTAL=30000" not in controller:
-    fail("V6 volatile cache bounds are missing")
+    fail("V9 volatile cache bounds are missing")
 if 'createIndex("series","series"' not in controller or 'rowsStore.put({id:key+"|"+c.t,series:key,...c})' not in controller:
-    fail("V6 per-candle IndexedDB storage is missing")
+    fail("V9 per-candle IndexedDB storage is missing")
 if "navigator.storage?.estimate" not in controller or "cache-storage-pressure" not in controller:
-    fail("V6 browser storage pressure monitoring is missing")
+    fail("V9 browser storage pressure monitoring is missing")
 if "memoryCacheIncomplete" not in controller:
-    fail("V6 fallback cache eviction can incorrectly mark partial history complete")
+    fail("V9 fallback cache eviction can incorrectly mark partial history complete")
 if "discardedLegacyArray" not in controller:
-    fail("V6 legacy cache migration may retain a duplicate full candle array in metadata")
+    fail("V9 legacy cache migration may retain a duplicate full candle array in metadata")
 
 
 # All static CSS/JS entry resources use one cache-busting release token.
@@ -178,10 +178,10 @@ for page in html_files:
 if static_versions != {STATIC_ASSET_VERSION, KLINE_SYNC_VERSION}:
     fail(f"static CSS/JS cache versions are not unified: {sorted(static_versions)}")
 if f'modules/v6-runtime.js?v={KLINE_SYNC_VERSION}' not in (ROOT / "index.html").read_text(encoding="utf-8"):
-    fail("V6 runtime entry cache version is not refreshed for synchronized K-line rendering")
+    fail("V9 runtime entry cache version is not refreshed for synchronized K-line rendering")
 runtime_source = (ROOT / "modules/v6-runtime.js").read_text(encoding="utf-8")
 if f'v6-kline-view.js?v={KLINE_SYNC_VERSION}' not in runtime_source:
-    fail("V6 K-line view import cache version is not refreshed")
+    fail("V9 K-line view import cache version is not refreshed")
 if f'gate-kline-controller.js?v={KLINE_SYNC_VERSION}' not in runtime_source:
     fail("Gate K-line controller import cache version is not refreshed")
 if f'kline-rotation-pause.js?v={KLINE_SYNC_VERSION}' not in runtime_source:
@@ -259,8 +259,8 @@ if (ROOT / "modules/signal-ticker").exists() or (ROOT / "tests/signal-feed.test.
 
 # Report every check only after all validation rules have run.
 if errors:
-    print("V6 validation FAILED:")
+    print("V9 validation FAILED:")
     for error in errors:
         print(" -", error)
     sys.exit(1)
-print(f"V6 validation passed: {len(html_files)} HTML files; local references, inline scripts, CSS, imports, namespaces and dependencies checked.")
+print(f"V9 validation passed: {len(html_files)} HTML files; local references, inline scripts, CSS, imports, namespaces and dependencies checked.")
