@@ -10,6 +10,9 @@ const utc = value => Math.floor(Date.parse(value) / 1000);
 globalThis.window = { indexedDB: globalThis.indexedDB };
 Object.defineProperty(globalThis, "navigator", { configurable: true, value: { storage: { estimate: async () => ({ usage: 1, quota: 100 }) } } });
 
+class TestWebSocket { static OPEN = 1; constructor() { this.readyState = 0; } send() {} close() { this.readyState = 3; } }
+Object.defineProperty(globalThis, "WebSocket", { configurable: true, writable: true, value: TestWebSocket });
+
 function response(rows) { return { ok: true, status: 200, json: async () => rows }; }
 function waitForState(expected, timeoutMs = 6000) {
   let resolve, reject;
