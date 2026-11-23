@@ -517,9 +517,11 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
    const cachedEma=await readEmaSeries(keyOf(c,tf),candles,await getDB());
    if(!current(token)||!canWork())return false;
    if(candles.length)frame?.contentWindow?.setVegasEmaCandles?.(candles,cachedEma||undefined);
-   subscribe();startHistoryQueue(forceLatest);
-   if(!await getDB())void updateLatest(c,tf,token,true);
-   else if(!instruments.some(item=>item.symbol===nextSymbol))void updateLatest(c,tf,token,forceLatest);
+   subscribe();
+   // Fetch/render the active series independently before background full-history pagination.
+   await updateLatest(c,tf,token,forceLatest);
+   if(!current(token)||!canWork())return false;
+   startHistoryQueue(forceLatest);
    return candles.length>0
   }catch(e){if(current(token))onState({symbol,contract,timeframe,count:candles.length,historyComplete:complete,status:"cache-read-failed",error:String(e?.message||e)});return false}
  }
