@@ -165,6 +165,7 @@ test("host, cards, timeframe and Logo retain their message integration contracts
   assert.match(runtime, /vegas-v9-selected-timeframe/);
   assert.match(runtime, /vegas-v9-last-random-start/);
   assert.match(runtime, /vegas-v6-selected-timeframe/);
+  assert.match(runtime, /localStorage\.setItem\(STORAGE,saved\)/);
   assert.match(runtime, /vegas-v6-last-random-start/);
   assert.match(runtime, /event\.source===timeframeFrame\?\.contentWindow/);
   assert.match(runtime, /localStorage\.setItem\(STORAGE,next\)/);

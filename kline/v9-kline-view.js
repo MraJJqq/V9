@@ -16,7 +16,7 @@ function setRight(v){
 let viewportSaveTimer=0;
 function persistViewport(){if(viewportSaveTimer){clearTimeout(viewportSaveTimer);viewportSaveTimer=0}if(!viewportState)return;try{localStorage.setItem(VIEWPORT_STORAGE_KEY,JSON.stringify(viewportState))}catch(_){}}
 function saveViewport(){const next=captureViewportState(C,right,barW);if(!next)return;viewportState=next;if(viewportSaveTimer)return;viewportSaveTimer=setTimeout(()=>{viewportSaveTimer=0;persistViewport()},150)}
-function migrateLegacyViewportKey(key){if(viewportKeyInitialized||typeof key!=="string"||!key)return;viewportKeyInitialized=true;try{const legacy=normalizeViewportState(JSON.parse(localStorage.getItem("vegas-v6-viewport:"+key)||"null"));if(legacy){viewportState=legacy;localStorage.setItem(VIEWPORT_STORAGE_KEY,JSON.stringify(legacy));}}catch(_){}}
+function migrateLegacyViewportKey(key){if(viewportKeyInitialized||typeof key!=="string"||!key)return;try{const legacy=normalizeViewportState(JSON.parse(localStorage.getItem("vegas-v6-viewport:"+key)||"null"));if(legacy){viewportState=legacy;localStorage.setItem(VIEWPORT_STORAGE_KEY,JSON.stringify(legacy));viewportKeyInitialized=true;}}catch(_){}}
 function ask(){if(!raf&&!destroyed)raf=requestAnimationFrame(loop)}
 function resize(){if(destroyed)return;if(P.size||pinch)resetInteraction();dpr=Math.min(window.devicePixelRatio||1,2);const r=host.getBoundingClientRect();W=r.width;H=r.height;setRight(right);canvas.width=Math.max(1,Math.round(W*dpr));canvas.height=Math.max(1,Math.round(H*dpr));ask()}
 function yOf(p){return T0+(Math.log(hi)-Math.log(p))/(Math.log(hi)-Math.log(lo))*(H-T0-B)}
