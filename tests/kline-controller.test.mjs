@@ -202,16 +202,23 @@ test("failed latest-gap repair persists and restores its task after controller r
     if (url.searchParams.has("from")) return response([]);
     return response(incomplete);
   };
-  const first = waitForState("history-gap-pending");
+  let resolveRepairState;
+  const repairState = new Promise(resolve => { resolveRepairState = resolve; });
+  const observedStates = [];
+  const firstController = createGateKlineController({ instruments: [], isHidden: () => false, onState: state => {
+    observedStates.push(state);
+    if (state.status === "history-gap-pending" || state.status === "latest-refresh-failed") resolveRepairState(state);
+  }});
   try {
-    await first.controller.select("SIM_RESTART", contract, "1H");
-    await wait(first.promise);
+    await firstController.select("SIM_RESTART", contract, "1H");
+    const repairResult = await wait(repairState);
+    assert.equal(repairResult.status, "history-gap-pending", "unexpected repair state: " + JSON.stringify(repairResult));
     const task = await readStore("seriesMeta", "repairTask|" + key);
     assert.equal(task.kind, "latest");
     assert.equal(task.status, "pending");
     assert.ok(task.nextRetryAt > Date.now());
   } finally {
-    first.controller.destroy();
+    firstController.destroy();
   }
   let resolveRestored, resolveRepaired;
   const restoredPromise = new Promise(resolve => { resolveRestored = resolve; });
@@ -283,11 +290,12 @@ test("coalesces a manual refresh while the same series request is still in fligh
   };
   const controller = createGateKlineController({ instruments: [], isHidden: () => false });
   try {
-    await controller.select("SIM_COALESCE", contract, "1H");
+    const selecting = controller.select("SIM_COALESCE", contract, "1H");
     await wait(started);
     const refresh = controller.refresh();
     assert.equal(calls, 1, "refresh must reuse the active request");
     release();
+    await wait(selecting);
     await wait(refresh);
     assert.equal(calls, 1);
   } finally {
@@ -318,7 +326,7 @@ test("resumes the latest-data request after a page-hidden abort", async () => {
     onState: state => { if (state.status === "latest-gap-repaired") resolveRepaired(state); }
   });
   try {
-    await controller.select("SIM_RESUME", contract, "1H");
+    const selecting = controller.select("SIM_RESUME", contract, "1H");
     await wait(started);
     hidden = true;
     controller.suspend();
@@ -326,6 +334,7 @@ test("resumes the latest-data request after a page-hidden abort", async () => {
     hidden = false;
     controller.resume();
     await wait(repaired, 10000);
+    await wait(selecting);
     assert.ok(calls >= 2);
   } finally {
     controller.destroy();
