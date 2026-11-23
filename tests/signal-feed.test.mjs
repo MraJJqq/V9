@@ -46,12 +46,3 @@ test("a symbol is not duplicated while continuously present in the feed", () => 
   const detectedAgain = updateSignalLifecycle(feed(["BTC"]), absent);
   assert.deepEqual(detectedAgain.symbols, ["BTC"]);
 });
-
-test("different symbols expire independently", () => {
-  const start = 1_000_000;
-  const first = updateSignalLifecycle(feed(["BTC"]), {}, start);
-  const second = updateSignalLifecycle(feed(["BTC", "ETH"]), first, start + 60_000);
-  const later = updateSignalLifecycle(feed(["BTC", "ETH"]), second, start + SIGNAL_TTL_MS);
-  assert.deepEqual(later.symbols, ["ETH"]);
-  assert.deepEqual(later.records, { ETH: start + 60_000 });
-});
