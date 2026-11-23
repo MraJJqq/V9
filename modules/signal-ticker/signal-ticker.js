@@ -1,5 +1,4 @@
 export const BARK_SIGNAL_FEED_URL = "https://raw.githubusercontent.com/MraJJqq/Vegasbark/main/public/signals.json";
-export const SIGNAL_TTL_MS = 12 * 60 * 60 * 1000;
 export const SIGNAL_STATE_KEY = "vegas-v9-signal-lifecycle-v1";
 
 export function formatSignalText(payload) {
@@ -12,7 +11,7 @@ export function formatSignalText(payload) {
   return symbols.length ? symbols.join(" ▰\u00A0") : "𝐍𝐨 𝐒𝐢𝐠𝐧𝐚𝐥";
 }
 
-export function updateSignalLifecycle(payload, state = {}, now = Date.now()) {
+export function updateSignalLifecycle(payload, state = {}) {
   if (!payload || payload.schema_version !== 1 || payload.source !== "Vegasbark" || !Array.isArray(payload.symbols)) {
     throw new TypeError("Invalid Bark signal feed");
   }
@@ -23,18 +22,11 @@ export function updateSignalLifecycle(payload, state = {}, now = Date.now()) {
   const previousFeed = new Set(Array.isArray(state.lastFeedSymbols) ? state.lastFeedSymbols : []);
   const records = { ...(state.records && typeof state.records === "object" ? state.records : {}) };
 
-  // A symbol starts its 12-hour clock the first time V9 detects it.
+  // Keep every detected symbol until the explicit daily reset is added.
+  // A symbol already present in the feed is not duplicated.
   for (const symbol of incoming) {
     if (!previousFeed.has(symbol) && !Object.hasOwn(records, symbol)) {
-      records[symbol] = now;
-    }
-  }
-
-  // Expired records are removed. A still-present feed item is not re-added
-  // until it disappears from the feed and is detected again.
-  for (const [symbol, detectedAt] of Object.entries(records)) {
-    if (!Number.isFinite(detectedAt) || now - detectedAt >= SIGNAL_TTL_MS) {
-      delete records[symbol];
+      records[symbol] = true;
     }
   }
 
@@ -90,7 +82,7 @@ function mountSignalTicker() {
       });
       if (!response.ok) throw new Error("Bark feed HTTP " + response.status);
       const payload = await response.json();
-      signalState = updateSignalLifecycle(payload, signalState, Date.now());
+      signalState = updateSignalLifecycle(payload, signalState);
       writeSignalState(signalState);
       ticker.replaceChildren();
       ticker.textContent = formatSignalText({ ...payload, symbols: signalState.symbols });
@@ -101,7 +93,7 @@ function mountSignalTicker() {
           schema_version: 1,
           source: "Vegasbark",
           symbols: signalState.lastFeedSymbols || []
-        }, signalState, Date.now());
+        }, signalState);
         writeSignalState(signalState);
         ticker.replaceChildren();
         ticker.textContent = formatSignalText({ schema_version: 1, source: "Vegasbark", symbols: signalState.symbols });
