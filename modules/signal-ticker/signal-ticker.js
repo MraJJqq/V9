@@ -30,7 +30,9 @@ function mountSignalTicker() {
       });
       if (!response.ok) throw new Error("Bark feed HTTP " + response.status);
       const payload = await response.json();
-      ticker.textContent = formatSignalText(payload);
+      const nextText = formatSignalText(payload);
+      ticker.replaceChildren();
+      ticker.textContent = nextText;
       ticker.hidden = false;
     } catch (error) {
       if (error.name !== "AbortError") console.warn("[VEGAS V9 Bark feed]", error);
