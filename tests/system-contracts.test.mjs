@@ -23,6 +23,8 @@ test("instrument categories are explicit and preserve the existing 18/4 grouping
 test("cards expose only batch quote updates and direct card ordering", async () => {
   const cards = await source("cards/rolling-cards.js");
   assert.match(cards, /window\.updateQuotes=function/);
+  assert.match(cards, /window\.V6_INSTRUMENT_CATALOG/);
+  assert.doesNotMatch(cards, /V9_INSTRUMENT_CATALOG/);
   assert.match(cards, /window\.setCardOrder=function/);
   assert.doesNotMatch(cards, /window\.updateQuote\s*=/);
   assert.doesNotMatch(cards, /VEGAS_SET_CARD_ORDER/);
@@ -154,6 +156,9 @@ test("host, cards, timeframe and Logo retain their message integration contracts
   assert.match(runtime, /vegas-v9-last-random-start/);
   assert.doesNotMatch(runtime, /vegas-v6-selected-timeframe|vegas-v6-last-random-start/);
   assert.match(runtime, /event\.source===timeframeFrame\?\.contentWindow/);
+  assert.match(runtime, /localStorage\.setItem\(STORAGE,next\)/);
+  assert.match(runtime, /VEGAS_TIMEFRAME_READY/);
+  assert.match(timeframe, /VEGAS_TIMEFRAME_READY/);
   assert.match(runtime, /VEGAS_CARD_INTERACTION/);
   assert.match(runtime, /VEGAS_CARD_SELECT/);
   assert.match(runtime, /VEGAS_LOGO_SET_SYMBOL/);
@@ -196,6 +201,8 @@ test("EMA renders from available local history while backfill continues", async 
   assert.match(view, /viewportSaveTimer/);
   assert.match(view, /persistViewport\(\)/);
   assert.doesNotMatch(controller, /getContracts|assertContract|contractsPromise/);
+  const activeSelect = controller.slice(controller.indexOf("async function select("), controller.indexOf("async function refresh("));
+  assert.ok(activeSelect.indexOf("await updateLatest(c,tf,token,forceLatest)") < activeSelect.indexOf("startHistoryQueue(forceLatest)"), "active latest data must load before background full-history queue");
   assert.match(controller, /history-backfill-paused/);
   assert.match(controller, /markDBUnavailable/);
 });
