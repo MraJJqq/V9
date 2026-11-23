@@ -15,9 +15,9 @@ let timeframe="4H",destroyed=false,logoIndex=0,rotationTimer=null,transitionTime
 let transitionActive=false,activeTarget=null,queuedTarget=null;
 let quoteBusy=false,foregroundInterval=null,quoteAbort=null;
 const interactionLocks=new Set();
-try{const saved=localStorage.getItem(STORAGE);if(["1H","2H","4H","8H","D"].includes(saved))timeframe=saved}catch(_){}
+try{let saved=localStorage.getItem(STORAGE);if(!["1H","2H","4H","8H","D"].includes(saved)){const legacy=localStorage.getItem("vegas-v6-selected-timeframe");if(["1H","2H","4H","8H","D"].includes(legacy)){saved=legacy;localStorage.setItem(STORAGE,saved)}}if(["1H","2H","4H","8H","D"].includes(saved))timeframe=saved}catch(_){}
 let sessionQueue=[...createSessionQueue()],previous="";
-try{previous=localStorage.getItem(RANDOM_START)||""}catch(_){}
+try{previous=localStorage.getItem(RANDOM_START)||"";if(!previous){const legacy=localStorage.getItem("vegas-v6-last-random-start")||"";if(INSTRUMENTS.some(item=>item.symbol===legacy)){previous=legacy;localStorage.setItem(RANDOM_START,legacy)}}}catch(_){}
 const firstIndex=sessionQueue.findIndex(item=>item.symbol!==previous);
 if(firstIndex>0)sessionQueue=[...sessionQueue.slice(firstIndex),...sessionQueue.slice(0,firstIndex)];
 else if(firstIndex<0&&sessionQueue.length>1)sessionQueue.push(sessionQueue.shift());

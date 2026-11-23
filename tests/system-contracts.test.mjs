@@ -1,13 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";\nimport { migrateLegacyViewportState, VIEWPORT_STORAGE_KEY } from "../kline/v9-viewport-state.js";
 
 await import("../modules/shared/instrument-catalog.js");
 const { INSTRUMENTS, GATE_CONTRACTS } = await import("../modules/shared/universe-v9.js");
 const root = new URL("../", import.meta.url);
 const source = path => readFile(new URL(path, root), "utf8");
 
-test("catalog contains 22 unique instruments", () => {
+test("legacy V6 viewport state migrates into the V9 key without being discarded", () => {\n  const values = new Map([["vegas-v6-kline-viewport-v2", JSON.stringify({ version: 2, barW: 11, anchorTime: 1700000000, anchorOffset: 0.25 })]]);\n  const storage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) };\n  const migrated = migrateLegacyViewportState(storage);\n  assert.equal(migrated.barW, 11);\n  assert.equal(JSON.parse(values.get(VIEWPORT_STORAGE_KEY)).anchorTime, 1700000000);\n  assert.equal(values.has("vegas-v6-kline-viewport-v2"), false);\n});\n\ntest("catalog contains 22 unique instruments", () => {
   assert.equal(INSTRUMENTS.length, 22);
   assert.equal(new Set(INSTRUMENTS.map(item => item.symbol)).size, 22);
 });
@@ -24,7 +24,7 @@ test("cards expose only batch quote updates and direct card ordering", async () 
   const cards = await source("cards/rolling-cards.js");
   assert.match(cards, /window\.updateQuotes=function/);
   assert.match(cards, /window\.V9_INSTRUMENT_CATALOG/);
-  assert.doesNotMatch(cards, /V9_INSTRUMENT_CATALOG/);
+  assert.doesNotMatch(cards, /V6_INSTRUMENT_CATALOG/);
   assert.match(cards, /window\.setCardOrder=function/);
   assert.doesNotMatch(cards, /window\.updateQuote\s*=/);
   assert.doesNotMatch(cards, /VEGAS_SET_CARD_ORDER/);
@@ -154,7 +154,7 @@ test("host, cards, timeframe and Logo retain their message integration contracts
   assert.match(runtime, /event\.origin!==location\.origin/);
   assert.match(runtime, /vegas-v9-selected-timeframe/);
   assert.match(runtime, /vegas-v9-last-random-start/);
-  assert.doesNotMatch(runtime, /vegas-v6-selected-timeframe|vegas-v6-last-random-start/);
+  assert.match(runtime, /vegas-v6-selected-timeframe/);\n  assert.match(runtime, /vegas-v6-last-random-start/);
   assert.match(runtime, /event\.source===timeframeFrame\?\.contentWindow/);
   assert.match(runtime, /localStorage\.setItem\(STORAGE,next\)/);
   assert.match(runtime, /VEGAS_TIMEFRAME_READY/);
