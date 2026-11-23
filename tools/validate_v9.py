@@ -143,8 +143,12 @@ latest_ema = controller.find("await updateEmaCache(key,merged)")
 gap_repair = controller.find("const repaired=await repairGaps(c,tf,merged)")
 if min(latest_write, latest_ema, gap_repair) < 0 or not (latest_write < latest_ema < gap_repair):
     fail("latest candles and EMA must be persisted before independent historical gap repair")
-if "KLINE_GUARANTEE_DAYS=90" not in controller or "hasRollingWindowCoverage" not in controller or "newestTimestamp:candles.at(-1)?.t" not in controller:
-    fail("rolling 90-day K-line coverage and observable candle timestamps are missing")
+if "newestTimestamp:candles.at(-1)?.t" not in controller:
+    fail("controller must expose the actual newest cached candle timestamp")
+if "PAGE=2000" not in controller:
+    fail("Gate history retrieval must use bounded pages and continue historical pagination")
+if "hasLatestCoverage" not in controller or "latest-verified" not in controller:
+    fail("latest candle integrity verification is missing")
 if "latest-verified" not in controller:
     fail("successful gap repair does not mark the series verified")
 if 'DB_NAME="vegas-v9-market-cache"' not in controller:
@@ -155,8 +159,10 @@ if 'DB_VERSION=3' not in controller or 'META_STORE="seriesMeta"' not in controll
     fail("V9 persistent EMA cache schema version 3 is missing")
 if "ensureEmaSeries" not in controller or "updateLatestEma" not in controller:
     fail("V9 full-history and incremental EMA cache handling is missing")
-if "MEMORY_MAX_PER_SERIES=12000" not in controller or "MEMORY_MAX_TOTAL=30000" not in controller:
-    fail("V9 volatile cache bounds are missing")
+if "memoryCacheIncomplete" not in controller or "while(memoryCache.size>8)" not in controller or "const data=merge(previous.candles,rows)" not in controller:
+    fail("V9 volatile fallback must preserve each retained series in full and mark evicted series incomplete")
+if "truncated:" in controller or "cache-memory-limit" in controller:
+    fail("V9 volatile fallback still truncates candle history")
 if 'createIndex("series","series"' not in controller or 'rowsStore.put({id:key+"|"+c.t,series:key,...c})' not in controller:
     fail("V9 per-candle IndexedDB storage is missing")
 if "navigator.storage?.estimate" not in controller or "cache-storage-pressure" not in controller:
