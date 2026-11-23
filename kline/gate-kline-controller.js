@@ -1,6 +1,5 @@
 import { EMA_PERIODS, calculateVegasEma, emaSourceSignature, advanceEmaValue, seedEmaValue } from "./ema-engine.js?v=v9-local-kline-20261123-1";
 const DB_NAME="vegas-v9-market-cache",DB_VERSION=3,LEGACY_STORE="candles",STORE="candleRows",META_STORE="seriesMeta",EMA_STORE="emaRows",EMA_VERSION=1;
-const MEMORY_MAX_PER_SERIES=12000,MEMORY_MAX_TOTAL=30000;
 let storageCheckAt=0;
 const INTERVALS=Object.freeze({"1H":"1h","2H":"1h","4H":"4h","8H":"8h","D":"1d"});
 const TIMEFRAMES=Object.freeze(["1H","2H","4H","8H","D"]);
@@ -34,18 +33,6 @@ export function hasLatestCoverage(rows,tf,now=Date.now(),graceMs=120000){
  const stepMs=MS[tf];if(!stepMs||!Array.isArray(rows)||!rows.length)return false;
  const step=stepMs/1000;if(rows.some(row=>!Number.isFinite(row.t)||(row.t-timeframeOffsetSeconds(tf))%step!==0)||findCandleGaps(rows,tf).length)return false;
  return rows[rows.length-1].t>=expectedLatestCandleTimestamp(tf,now,graceMs);
-}
-export const KLINE_GUARANTEE_DAYS=90;
-export function rollingWindowStartTimestamp(tf,now=Date.now(),days=KLINE_GUARANTEE_DAYS){
- const stepMs=MS[tf];if(!stepMs||!Number.isFinite(days)||days<=0)throw new TypeError("Unsupported rolling K-line window");
- const offsetMs=timeframeOffsetSeconds(tf)*1000;
- return (Math.floor((now-days*86400000-offsetMs)/stepMs)*stepMs+offsetMs)/1000;
-}
-export function hasRollingWindowCoverage(rows,tf,now=Date.now(),days=KLINE_GUARANTEE_DAYS){
- const step=MS[tf]/1000;if(!step||!Array.isArray(rows)||!rows.length)return false;
- const start=rollingWindowStartTimestamp(tf,now,days),recent=rows.filter(row=>Number.isFinite(row.t)&&row.t>=start);
- if(!recent.length||recent[0].t!==start)return false;
- return hasLatestCoverage(recent,tf,now);
 }
 export function historyRetryDelay(attempt){return Math.min(300000,30000*2**Math.min(Math.max(0,Number(attempt)||0),4));}
 const keyOf=(contract,tf)=>"gate-usdt:"+contract+":"+tf;
@@ -204,13 +191,12 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
  let forceLatestSweep=false;
  const canWork=()=>!stopped&&!paused&&!isHidden();
  function trimMemoryCache(){
-  let total=0;for(const value of memoryCache.values())total+=value.candles?.length||0;
-  while(memoryCache.size&&(memoryCache.size>8||total>MEMORY_MAX_TOTAL)){let victim=null,oldest=Infinity;for(const [key,value] of memoryCache){if((value.updatedAt||0)<oldest){oldest=value.updatedAt||0;victim=key}}if(victim===null)break;total-=memoryCache.get(victim)?.candles?.length||0;memoryCache.delete(victim);memoryCacheIncomplete.add(victim)}
+  while(memoryCache.size>8){let victim=null,oldest=Infinity;for(const [key,value] of memoryCache){if((value.updatedAt||0)<oldest){oldest=value.updatedAt||0;victim=key}}if(victim===null)break;memoryCache.delete(victim);memoryCacheIncomplete.add(victim)}
  }
  function putMemory(key,previous,rows,done,status,error){
-  const all=merge(previous.candles,rows),limited=all.length>MEMORY_MAX_PER_SERIES,data=limited?all.slice(-MEMORY_MAX_PER_SERIES):all;if(limited)memoryCacheIncomplete.add(key);const boundary=!limited&&!memoryCacheIncomplete.has(key)&&(done===true||previous.historyBoundaryReached===true),gap=(status==="latest-verified")?"clear":(["latest-data-updated","history-gap-pending","failed","paused"].includes(status)?"pending":(previous.latestGapStatus||"pending"));
-  memoryCache.set(key,{id:key,source:"Gate USDT perpetual",updatedAt:Date.now(),schemaVersion:3,historyComplete:boundary&&gap==="clear",historyBoundaryReached:boundary,historyBoundaryStatus:boundary?("gate-api-empty-page-confirmed"):"not-yet-confirmed",latestGapStatus:gap,requestStatus:limited?"memory-limit":status,lastError:error??previous.lastError??null,candleCount:data.length,oldestTimestamp:data[0]?.t??null,newestTimestamp:data.at(-1)?.t??null,candles:data,cacheMode:"memory",truncated:limited});
-  trimMemoryCache();if(limited)onState({status:"cache-memory-limit",key,retained:data.length,limit:MEMORY_MAX_PER_SERIES});
+  const data=merge(previous.candles,rows),boundary=!memoryCacheIncomplete.has(key)&&(done===true||previous.historyBoundaryReached===true),gap=(status==="latest-verified")?"clear":(["latest-data-updated","history-gap-pending","failed","paused"].includes(status)?"pending":(previous.latestGapStatus||"pending"));
+  memoryCache.set(key,{id:key,source:"Gate USDT perpetual",updatedAt:Date.now(),schemaVersion:3,historyComplete:boundary&&gap==="clear",historyBoundaryReached:boundary,historyBoundaryStatus:boundary?("gate-api-empty-page-confirmed"):"not-yet-confirmed",latestGapStatus:gap,requestStatus:status,lastError:error??previous.lastError??null,candleCount:data.length,oldestTimestamp:data[0]?.t??null,newestTimestamp:data.at(-1)?.t??null,candles:data,cacheMode:"memory"});
+  trimMemoryCache();
  }
  async function read(key){
   const db=await getDB();if(!db)return memoryCache.get(key)||{candles:[],historyBoundaryReached:false,latestGapStatus:"pending",cacheMode:"memory"};
@@ -543,5 +529,5 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
   }else startHistoryQueue(true);
  }
  function destroy(){if(stopped)return;stopped=true;paused=true;if(historyRetryTimer){clearTimeout(historyRetryTimer);historyRetryTimer=0}if(cacheRetryTimer){clearTimeout(cacheRetryTimer);cacheRetryTimer=0}selection++;for(const controller of requestControllers)controller.abort("controller-destroyed");closeWS();void flushPendingWrites()}
- return Object.freeze({select,refresh,resume,suspend,destroy,get state(){const key=keyOf(contract,timeframe);return Object.freeze({symbol,contract,timeframe,count:candles.length,oldestTimestamp:candles[0]?.t??null,newestTimestamp:candles.at(-1)?.t??null,recent90Coverage:hasRollingWindowCoverage(candles,timeframe),dataReady:loadedKey===key,historyComplete:complete,historyQueue:Object.freeze({running:queueRunning,completed:completed.size,total:instruments.length*TIMEFRAMES.length,failed:Object.fromEntries(failed)})})}});
+ return Object.freeze({select,refresh,resume,suspend,destroy,get state(){const key=keyOf(contract,timeframe);return Object.freeze({symbol,contract,timeframe,count:candles.length,oldestTimestamp:candles[0]?.t??null,newestTimestamp:candles.at(-1)?.t??null,dataReady:loadedKey===key,historyComplete:complete,historyQueue:Object.freeze({running:queueRunning,completed:completed.size,total:instruments.length*TIMEFRAMES.length,failed:Object.fromEntries(failed)})})}});
 }

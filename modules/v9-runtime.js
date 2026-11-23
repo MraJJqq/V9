@@ -1,7 +1,7 @@
 import { createLifecycleScope } from "./shared/lifecycle.js";
 import { createPageLifecycle } from "./shared/page-lifecycle-v9.js";
 import { INSTRUMENTS, GATE_CONTRACTS, createSessionQueue } from "./shared/universe-v9.js";
-import { createV9KlineView } from "../kline/v9-kline-view.js?v=v9-local-kline-20261123-1";
+import { createV9KlineView } from "../kline/v9-kline-view.js?v=v9-viewport-migration-2";
 import { createGateKlineController } from "../kline/gate-kline-controller.js?v=v9-local-kline-20261123-1";
 import { createKlineRotationPause } from "./kline-rotation-pause.js?v=v9-local-kline-20261123-1";
 

@@ -1,5 +1,5 @@
 import{createVegasEmaOverlay}from"./v9-vegas-ema.js?v=v9-local-kline-20261123-1";
-import{VIEWPORT_STORAGE_KEY,captureViewportState,normalizeViewportState,migrateLegacyViewportState,resolveViewportRight}from"./v9-viewport-state.js?v=v9-local-kline-20261123-1";
+import{VIEWPORT_STORAGE_KEY,captureViewportState,normalizeViewportState,migrateLegacyViewportState,resolveViewportRight}from"./v9-viewport-state.js?v=v9-viewport-migration-2";
 export function createV9KlineView({host,onInteractionChange=()=>{}}){
 if(!host)throw new TypeError("K-line host element is required");
 const abort=new AbortController(),{signal}=abort,canvas=document.createElement("canvas");

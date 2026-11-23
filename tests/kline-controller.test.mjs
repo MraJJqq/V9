@@ -107,21 +107,6 @@ test("checks latest closed-candle coverage across all five timeframes", () => {
   }
 });
 
-test("verifies exact rolling 90-day coverage across all five timeframes", () => {
-  const now = Date.parse("2026-11-21T14:05:00Z");
-  for (const [tf, step] of [["1H", 3600], ["2H", 7200], ["4H", 14400], ["8H", 28800], ["D", 86400]]) {
-    const start = rollingWindowStartTimestamp(tf, now);
-    const end = expectedLatestCandleTimestamp(tf, now);
-    const rows = [];
-    for (let t = start; t <= end; t += step) rows.push(candle(t));
-    assert.equal(hasRollingWindowCoverage(rows, tf, now), true, tf + " complete 90-day window");
-    assert.equal(hasRollingWindowCoverage(rows.slice(1), tf, now), false, tf + " missing first 90-day candle");
-    const gapIndex = Math.floor(rows.length / 2);
-    assert.equal(hasRollingWindowCoverage(rows.filter((_, index) => index !== gapIndex), tf, now), false, tf + " missing internal candle");
-    assert.equal(hasRollingWindowCoverage(rows.slice(0, -1), tf, now), false, tf + " stale latest candle");
-  }
-});
-
 test("allows Gate publication grace immediately after a timeframe boundary", () => {
   const now = Date.parse("2026-11-21T14:00:30Z");
   assert.equal(hasLatestCoverage([candle(utc("2026-11-21T12:00:00Z"))], "1H", now), true);
@@ -498,28 +483,24 @@ test("validates continuity across a large 20,000-candle historical series", () =
   assert.equal(hasLatestCoverage(rows, "1H", now), true);
 });
 
-test("enforces the per-series memory-cache cap without marking truncated history complete", async () => {
+test("memory fallback preserves every returned candle row without declaring full history complete", async () => {
   const descriptor = Object.getOwnPropertyDescriptor(indexedDB, "open");
   Object.defineProperty(indexedDB, "open", { configurable: true, writable: true, value: () => { throw new Error("simulated IndexedDB unavailable"); } });
-  const contract = "SIM_MEMORY_LIMIT_USDT";
+  const contract = "SIM_MEMORY_FULL_USDT";
   const current = Math.floor(Date.now() / 3600000) * 3600;
   const rows = Array.from({ length: 12005 }, (_, index) => candle(current - (12004 - index) * hour));
   const oldFetch = globalThis.fetch;
-  let limitEvent = false, resolveRepaired;
+  let resolveRepaired;
   const repaired = new Promise(resolve => { resolveRepaired = resolve; });
   globalThis.fetch = async () => response(rows);
   const controller = createGateKlineController({
     instruments: [], isHidden: () => false,
-    onState: state => {
-      if (state.status === "cache-memory-limit") limitEvent = true;
-      if (state.status === "latest-gap-repaired") resolveRepaired(state);
-    }
+    onState: state => { if (state.status === "latest-gap-repaired") resolveRepaired(state); }
   });
   try {
-    await controller.select("SIM_MEMORY_LIMIT", contract, "1H");
+    await controller.select("SIM_MEMORY_FULL", contract, "1H");
     await wait(repaired, 15000);
-    assert.equal(limitEvent, true);
-    assert.equal(controller.state.count, 12000);
+    assert.equal(controller.state.count, 12005);
     assert.equal(controller.state.historyComplete, false);
   } finally {
     controller.destroy();
