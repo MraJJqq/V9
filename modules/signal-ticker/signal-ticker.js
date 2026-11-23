@@ -1,6 +1,18 @@
 export const BARK_SIGNAL_FEED_URL = "https://raw.githubusercontent.com/MraJJqq/Vegasbark/main/public/signals.json";
 export const SIGNAL_STATE_KEY = "vegas-v9-signal-lifecycle-v1";
 
+export function beijingDateKey(value = Date.now()) {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(value instanceof Date ? value : new Date(value));
+  const part = type => parts.find(item => item.type === type)?.value;
+  return part("year") + "-" + part("month") + "-" + part("day");
+}
+
+export function isCurrentBeijingFeed(payload, now = Date.now()) {
+  if (!payload || typeof payload.generated_at !== "string") return false;
+  const generated = new Date(payload.generated_at);
+  return Number.isFinite(generated.getTime()) && beijingDateKey(generated) === beijingDateKey(now);
+}
+
 export function formatSignalText(payload) {
   if (!payload || payload.schema_version !== 1 || payload.source !== "Vegasbark" || !Array.isArray(payload.symbols)) {
     throw new TypeError("Invalid Bark signal feed");
@@ -11,7 +23,7 @@ export function formatSignalText(payload) {
   return symbols.length ? symbols.join(" ▰\u00A0") : "𝐍𝐨 𝐒𝐢𝐠𝐧𝐚𝐥";
 }
 
-export function updateSignalLifecycle(payload, state = {}) {
+export function updateSignalLifecycle(payload, state = {}, now = Date.now()) {
   if (!payload || payload.schema_version !== 1 || payload.source !== "Vegasbark" || !Array.isArray(payload.symbols)) {
     throw new TypeError("Invalid Bark signal feed");
   }
@@ -19,8 +31,10 @@ export function updateSignalLifecycle(payload, state = {}) {
   const incoming = [...new Set(payload.symbols
     .map(value => String(value).trim())
     .filter(value => /^[A-Z0-9]{2,16}$/.test(value)))];
-  const previousFeed = new Set(Array.isArray(state.lastFeedSymbols) ? state.lastFeedSymbols : []);
-  const records = { ...(state.records && typeof state.records === "object" ? state.records : {}) };
+  const dateKey = beijingDateKey(now);
+  const sameDay = state.dateKey === dateKey;
+  const previousFeed = new Set(sameDay && Array.isArray(state.lastFeedSymbols) ? state.lastFeedSymbols : []);
+  const records = sameDay && state.records && typeof state.records === "object" ? { ...state.records } : {};
 
   // Keep every detected symbol until the explicit daily reset is added.
   // A symbol already present in the feed is not duplicated.
@@ -34,7 +48,7 @@ export function updateSignalLifecycle(payload, state = {}) {
     ...incoming.filter(symbol => Object.hasOwn(records, symbol)),
     ...Object.keys(records).filter(symbol => !incoming.includes(symbol))
   ];
-  return { records, lastFeedSymbols: incoming, symbols };
+  return { records, lastFeedSymbols: incoming, symbols, dateKey };
 }
 
 function readSignalState() {
@@ -51,7 +65,8 @@ function writeSignalState(state) {
     if (Object.keys(state.records).length || state.lastFeedSymbols.length) {
       localStorage.setItem(SIGNAL_STATE_KEY, JSON.stringify({
         records: state.records,
-        lastFeedSymbols: state.lastFeedSymbols
+        lastFeedSymbols: state.lastFeedSymbols,
+        dateKey: state.dateKey
       }));
     } else {
       localStorage.removeItem(SIGNAL_STATE_KEY);
@@ -82,7 +97,10 @@ function mountSignalTicker() {
       });
       if (!response.ok) throw new Error("Bark feed HTTP " + response.status);
       const payload = await response.json();
-      signalState = updateSignalLifecycle(payload, signalState);
+      const currentDayPayload = isCurrentBeijingFeed(payload)
+        ? payload
+        : { schema_version: 1, source: "Vegasbark", symbols: [] };
+      signalState = updateSignalLifecycle(currentDayPayload, signalState);
       writeSignalState(signalState);
       ticker.replaceChildren();
       ticker.textContent = formatSignalText({ ...payload, symbols: signalState.symbols });
