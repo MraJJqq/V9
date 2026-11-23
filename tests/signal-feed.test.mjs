@@ -18,7 +18,7 @@ test("signal text preserves Bark order and separator spacing", () => {
 });
 
 test("empty successful Bark feed displays the exact no-signal text", () => {
-  assert.equal(formatSignalText(feed([])), "𝐍𝐨𝐒𝐢𝐠𝐧𝐚𝐥");
+  assert.equal(formatSignalText(feed([])), "𝐍𝐨 𝐒𝐢𝐠𝐧𝐚𝐥");
 });
 
 test("invalid feed payload is rejected instead of being displayed as no signal", () => {
