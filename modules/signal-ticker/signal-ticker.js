@@ -13,6 +13,16 @@ export function isCurrentBeijingFeed(payload, now = Date.now()) {
   return Number.isFinite(generated.getTime()) && beijingDateKey(generated) === beijingDateKey(now);
 }
 
+export function boldMath(text) {
+  return Array.from(String(text), char => {
+    const code = char.codePointAt(0);
+    if (code >= 65 && code <= 90) return String.fromCodePoint(0x1D400 + code - 65);
+    if (code >= 97 && code <= 122) return String.fromCodePoint(0x1D41A + code - 97);
+    if (code >= 48 && code <= 57) return String.fromCodePoint(0x1D7CE + code - 48);
+    return char;
+  }).join("");
+}
+
 export function formatSignalText(payload) {
   if (!payload || payload.schema_version !== 1 || payload.source !== "Vegasbark" || !Array.isArray(payload.symbols)) {
     throw new TypeError("Invalid Bark signal feed");
@@ -20,7 +30,7 @@ export function formatSignalText(payload) {
   const symbols = payload.symbols
     .map(value => String(value).trim())
     .filter(value => /^[A-Z0-9]{2,16}$/.test(value));
-  return symbols.length ? symbols.join(" ▰\u00A0") : "𝐍𝐨 𝐒𝐢𝐠𝐧𝐚𝐥";
+  return symbols.length ? symbols.map(boldMath).join(" ▰\\u00A0") : "𝐍𝐨 𝐒𝐢𝐠𝐧𝐚𝐥";
 }
 
 export function updateSignalLifecycle(payload, state = {}, now = Date.now()) {

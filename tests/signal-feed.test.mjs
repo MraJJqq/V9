@@ -15,8 +15,12 @@ test("Bark feed URL points to the Vegasbark public signal feed", () => {
   assert.equal(BARK_SIGNAL_FEED_URL, "https://raw.githubusercontent.com/MraJJqq/Vegasbark/main/public/signals.json");
 });
 
-test("signal text preserves Bark order and separator spacing", () => {
-  assert.equal(formatSignalText(feed(["BTC", "ETH", "XAU"])), "BTC ▰\u00A0ETH ▰\u00A0XAU");
+test("signal text matches Bark mathematical-bold symbols and exact separator spacing", () => {
+  assert.equal(formatSignalText(feed(["BTC", "ETH", "XAU"])), "𝐁𝐓𝐂 ▰\\u00A0𝐄𝐓𝐇 ▰\\u00A0𝐗𝐀𝐔");
+});
+
+test("signal text converts digits and preserves the Bark separator", () => {
+  assert.equal(formatSignalText(feed(["BTC2", "XAU"])), "𝐁𝐓𝐂𝟐 ▰\\u00A0𝐗𝐀𝐔");
 });
 
 test("empty successful Bark feed displays the exact no-signal text", () => {
