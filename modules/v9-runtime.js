@@ -40,6 +40,18 @@ function setInteractionLock(source,active){
 }
 const view=createV9KlineView({host:klineHost,onInteractionChange:setInteractionLock});
 const drawingTools=mountV9DrawingTools({app,onModeChange:active=>setInteractionLock("drawing-tools",active)});
+let drawingLayoutRefresh=null;
+function refreshDrawingLayout(){
+ if(destroyed)return;
+ drawingLayoutRefresh?.();
+ drawingLayoutRefresh=lifecycle.animationFrame(()=>{
+  drawingLayoutRefresh=null;
+  drawingTools.refreshLayout();
+ });
+}
+lifecycle.listen(window,"resize",refreshDrawingLayout,{passive:true});
+lifecycle.listen(window,"orientationchange",refreshDrawingLayout,{passive:true});
+if(window.visualViewport)lifecycle.listen(window.visualViewport,"resize",refreshDrawingLayout,{passive:true});
 function setUserRotationPaused(paused){
  if(userRotationPaused===paused)return;
  userRotationPaused=paused;

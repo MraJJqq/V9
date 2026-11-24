@@ -94,6 +94,7 @@ export function mountV9DrawingTools({app, onModeChange=()=>{}}){
  });
  canvas.addEventListener("pointerdown",down);canvas.addEventListener("pointermove",move);canvas.addEventListener("pointerup",up);canvas.addEventListener("pointercancel",up);
  const observer=new ResizeObserver(resize);observer.observe(app);resize();
+ function refreshLayout(){if(destroyed)return;resize();bar.getBoundingClientRect()}
  function destroy(){if(destroyed)return;destroyed=true;save();observer.disconnect();canvas.remove();bar.remove()}
- return Object.freeze({setSymbol:load,destroy,get enabled(){return enabled}});
+ return Object.freeze({setSymbol:load,refreshLayout,destroy,get enabled(){return enabled}});
 }
