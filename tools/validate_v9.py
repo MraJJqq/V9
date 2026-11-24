@@ -107,7 +107,7 @@ if "selectSymbol(sessionQueue[logoIndex].symbol,true)" not in runtime:
     fail("every V9 page open must force a complete K-line gap patrol")
 if "buildPatrolPlan" not in controller or "ordered.flatMap(item=>periods.map(tf=>" not in controller:
     fail("full-universe K-line patrol planning is missing")
-if "instruments:INSTRUMENTS" not in runtime:
+if "instruments:GATE_INSTRUMENTS" not in runtime:
     fail("K-line patrol must receive the authoritative V9 instrument universe")
 if "gap-patrol-started" not in controller or "gap-patrol-completed" not in controller:
     fail("K-line patrol lifecycle status reporting is missing")
