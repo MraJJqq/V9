@@ -103,6 +103,14 @@ if "universe-v9.js" not in runtime or "page-lifecycle-v9.js" not in runtime:
     fail("runtime is not wired exclusively to the V9 shared infrastructure")
 if "createV9KlineView" not in runtime:
     fail("runtime is not wired to the V9 K-line view")
+if "selectSymbol(sessionQueue[logoIndex].symbol,true)" not in runtime:
+    fail("every V9 page open must force a complete K-line gap patrol")
+if "buildPatrolPlan" not in controller or "instruments.length*TIMEFRAMES.length" not in controller:
+    fail("full-universe K-line patrol planning or 22 x 5 coverage is missing")
+if "gap-patrol-started" not in controller or "gap-patrol-completed" not in controller:
+    fail("K-line patrol lifecycle status reporting is missing")
+if "&&!forceLatestSweep)continue" not in controller:
+    fail("a fresh page-open patrol must retry pending series regardless of their previous backoff time")
 
 # Guard the global layout contract: the timeframe iframe's outer size has one owner.
 timeframe_host_path = ROOT / "modules/timeframe-switch/host.css"
@@ -139,10 +147,10 @@ if "modules/logo/host.css" in index_source:
 
 controller = (ROOT / "kline/gate-kline-controller.js").read_text(encoding="utf-8")
 latest_write = controller.find('await write(key,freshRows,cached.historyBoundaryReached===true,"latest-data-updated")')
-latest_ema = controller.find("await updateEmaCache(key,merged)")
 gap_repair = controller.find("const repaired=await repairGaps(c,tf,merged)")
-if min(latest_write, latest_ema, gap_repair) < 0 or not (latest_write < latest_ema < gap_repair):
-    fail("latest candles and EMA must be persisted before independent historical gap repair")
+latest_ema = controller.find("await updateEmaCache(key,repaired)")
+if min(latest_write, latest_ema, gap_repair) < 0 or not (latest_write < gap_repair < latest_ema):
+    fail("EMA cache must be updated only after the latest sequence passes gap repair and coverage verification")
 if "newestTimestamp:candles.at(-1)?.t" not in controller:
     fail("controller must expose the actual newest cached candle timestamp")
 if "PAGE=2000" not in controller:
