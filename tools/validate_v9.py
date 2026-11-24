@@ -105,6 +105,7 @@ if "createV9KlineView" not in runtime:
     fail("runtime is not wired to the V9 K-line view")
 if "selectSymbol(sessionQueue[logoIndex].symbol,true)" not in runtime:
     fail("every V9 page open must force a complete K-line gap patrol")
+controller = (ROOT / "kline/gate-kline-controller.js").read_text(encoding="utf-8")
 if "buildPatrolPlan" not in controller or "ordered.flatMap(item=>periods.map(tf=>" not in controller:
     fail("full-universe K-line patrol planning is missing")
 if "instruments:GATE_INSTRUMENTS" not in runtime:
