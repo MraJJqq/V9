@@ -105,8 +105,10 @@ if "createV9KlineView" not in runtime:
     fail("runtime is not wired to the V9 K-line view")
 if "selectSymbol(sessionQueue[logoIndex].symbol,true)" not in runtime:
     fail("every V9 page open must force a complete K-line gap patrol")
-if "buildPatrolPlan" not in controller or "instruments.length*TIMEFRAMES.length" not in controller:
-    fail("full-universe K-line patrol planning or 22 x 5 coverage is missing")
+if "buildPatrolPlan" not in controller or "ordered.flatMap(item=>periods.map(tf=>" not in controller:
+    fail("full-universe K-line patrol planning is missing")
+if "instruments:INSTRUMENTS" not in runtime:
+    fail("K-line patrol must receive the authoritative V9 instrument universe")
 if "gap-patrol-started" not in controller or "gap-patrol-completed" not in controller:
     fail("K-line patrol lifecycle status reporting is missing")
 if "&&!forceLatestSweep)continue" not in controller:
