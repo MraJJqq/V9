@@ -6,7 +6,7 @@ const read = path => readFile(new URL(path, import.meta.url), "utf8");
 
 test("V9 entry installs the home-screen update coordinator without changing app layout", async () => {
   const html = await read("../index.html");
-  assert.match(html, /app-update\.js\?v=v9-20261124-1/);
+  assert.match(html, /app-update\\.js\\?v=v9-20261124-2/);
   assert.match(html, /id="kline-host"/);
   assert.match(html, /id="logo-frame"/);
   assert.match(html, /id="timeframe-frame"/);
@@ -30,14 +30,14 @@ test("service worker keeps navigation fresh and isolates app cache from market d
   assert.match(source, /STATIC_DESTINATIONS/);
   assert.match(source, /version\.json/);
   assert.doesNotMatch(source, /indexedDB|deleteDatabase|localStorage\.clear/);
-  assert.doesNotMatch(source, /self\.skipWaiting\s*\(/);
+  assert.match(source, /self\\.skipWaiting\\s*\\(/);
 });
 
 test("release marker matches deployed client version", async () => {
   const marker = JSON.parse(await read("../version.json"));
   const updater = await read("../app-update.js");
   const worker = await read("../service-worker.js");
-  assert.equal(marker.version, "v9-20261124-1");
+  assert.equal(marker.version, "v9-20261124-2");
   assert.match(updater, new RegExp(marker.version));
   assert.match(worker, new RegExp(marker.version));
 });
