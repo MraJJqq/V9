@@ -187,13 +187,18 @@ if "discardedLegacyArray" not in controller:
 # All static CSS/JS entry resources use one cache-busting release token.
 STATIC_ASSET_VERSION = "v9-static-20261123-1"
 KLINE_SYNC_VERSION = "v9-local-kline-20261123-1"
+APP_UPDATE_VERSION = "v9-20261124-1"
 static_versions = set()
 for page in html_files:
     source = page.read_text(encoding="utf-8")
     for match in re.finditer(r"""(?:href|src)=["']([^"']+\.(?:css|js))\?v=([^"']+)["']""", source):
         static_versions.add(match.group(2))
-if static_versions != {STATIC_ASSET_VERSION, KLINE_SYNC_VERSION}:
+if static_versions != {STATIC_ASSET_VERSION, KLINE_SYNC_VERSION, APP_UPDATE_VERSION}:
     fail(f"static CSS/JS cache versions are not unified: {sorted(static_versions)}")
+if f'app-update.js?v={APP_UPDATE_VERSION}' not in (ROOT / "index.html").read_text(encoding="utf-8"):
+    fail("home-screen update coordinator entry version is missing")
+if not (ROOT / "service-worker.js").is_file() or not (ROOT / "version.json").is_file():
+    fail("home-screen update worker or release marker is missing")
 if f'modules/v9-runtime.js?v={KLINE_SYNC_VERSION}' not in (ROOT / "index.html").read_text(encoding="utf-8"):
     fail("V9 runtime entry cache version is not refreshed for synchronized K-line rendering")
 runtime_source = (ROOT / "modules/v9-runtime.js").read_text(encoding="utf-8")
