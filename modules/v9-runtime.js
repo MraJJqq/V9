@@ -49,7 +49,7 @@ function setUserRotationPaused(paused){
  if(!destroyed&&!isRuntimeHidden()&&!interactionLocks.size&&!transitionActive)scheduleSymbolRotation();
 }
 const rotationPause=createKlineRotationPause({target:klineHost,onToggle:()=>setUserRotationPaused(!userRotationPaused)});
-const controller=createGateKlineController({frame:{contentWindow:view},instruments:GATE_INSTRUMENTS,isHidden:isRuntimeHidden,onState:s=>{if(s.status==="gap-patrol-started"||s.status==="gap-patrol-completed")console.info("[VEGAS V9 K-line patrol]",s);if(s.status==="request-failed"||s.status==="cache-unavailable"||s.status==="cache-write-failed")console.warn("[VEGAS V9 data]",s);}});
+const controller=createGateKlineController({frame:{contentWindow:view},instruments:INSTRUMENTS,isHidden:isRuntimeHidden,onState:s=>{if(s.status==="gap-patrol-started"||s.status==="gap-patrol-completed")console.info("[VEGAS V9 K-line patrol]",s);if(s.status==="request-failed"||s.status==="cache-unavailable"||s.status==="cache-write-failed")console.warn("[VEGAS V9 data]",s);}});
 lifecycle.listen(window,"unhandledrejection",event=>console.error("[VEGAS V9 unhandled rejection]",event.reason));
 lifecycle.listen(window,"error",event=>console.error("[VEGAS V9 runtime error]",event.message,event.filename,event.lineno));
 function selectSymbol(symbol,patrolOnOpen=false){const item=INSTRUMENTS.find(x=>x.symbol===symbol),contract=GATE_CONTRACTS[symbol];if(!item||!contract){console.warn("[VEGAS V9] Unknown symbol:",symbol);return false;}void controller.select(symbol,contract,timeframe,patrolOnOpen);return true;}
