@@ -21,7 +21,7 @@ body{position:fixed;inset:0;overscroll-behavior:none}
 
 /* Drawing overlay and toolbar follow the shared full-screen geometry and timeframe layer. */
 #v9-drawing-layer{position:absolute;inset:0;z-index:6;display:block;background:transparent;pointer-events:none;touch-action:auto;-webkit-user-select:none;user-select:none}
-#v9-drawing-tools{position:fixed!important;top:max(8px,var(--v9-safe-left))!important;left:max(6px,var(--v9-safe-left))!important;z-index:2000!important;display:flex;flex-direction:column;align-items:flex-start;gap:0;margin:0;padding:0;border:0;background:transparent;pointer-events:auto}
+#v9-drawing-tools{position:fixed!important;top:8px!important;left:max(6px,var(--v9-safe-left))!important;z-index:2000!important;display:flex;flex-direction:column;align-items:flex-start;gap:0;margin:0;padding:0;border:0;background:transparent;pointer-events:auto}
 #v9-drawing-tools button{width:auto;height:auto;min-width:0;min-height:0;padding:0 clamp(4px,1vw,8px);border:0;background:none;color:#7f8db0;font:700 clamp(18.67px,2.87vh,29.33px)/1.05 -apple-system,BlinkMacSystemFont,sans-serif;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:font-size .35s cubic-bezier(.2,.8,.2,1),color .35s,transform .35s cubic-bezier(.2,.8,.2,1),filter .35s}
 #v9-drawing-tools button[aria-pressed="true"]{font-size:clamp(28px,4.3vh,44px);color:#e8f0ff;transform:translateZ(24px);filter:drop-shadow(0 0 12px rgba(46,230,166,.7)) drop-shadow(0 10px 14px rgba(0,0,0,.6))}
 #v9-drawing-tools button:focus-visible{outline:2px solid #2ee6a6;outline-offset:2px;border-radius:8px}
