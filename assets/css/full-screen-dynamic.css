@@ -18,3 +18,10 @@ body{position:fixed;inset:0;overscroll-behavior:none}
 @media(orientation:landscape) and (max-height:420px){:root{--v9-card-zone:clamp(88px,28dvh,118px)}}
 @supports (height:100dvh){#timeframe-frame{height:calc(100dvh - var(--v9-safe-bottom, 0px))!important;max-height:calc(100dvh - var(--v9-safe-bottom, 0px))!important}}
 @supports not(height:100dvh){:root{--v9-card-zone:clamp(112px,22vh,190px)}#app{height:100vh}#logo-frame{height:clamp(72px,11vh,120px)}#rolling-cards-frame,#ring{height:calc(var(--v9-card-zone) + var(--v9-safe-bottom))!important}@media(orientation:landscape){:root{--v9-card-zone:clamp(96px,30vh,142px)}#logo-frame{height:clamp(48px,16vh,76px)}#rolling-cards-frame,#ring{height:calc(var(--v9-card-zone) + var(--v9-safe-bottom))!important}}@media(orientation:landscape) and (max-height:420px){:root{--v9-card-zone:clamp(88px,28vh,118px)}#logo-frame{height:clamp(44px,16vh,68px)}}}
+
+/* Drawing overlay and toolbar follow the shared full-screen geometry and timeframe layer. */
+#v9-drawing-layer{position:absolute;inset:0;z-index:6;display:block;background:transparent;pointer-events:none;touch-action:auto;-webkit-user-select:none;user-select:none}
+#v9-drawing-tools{position:fixed!important;top:max(8px,var(--v9-safe-left))!important;left:max(6px,var(--v9-safe-left))!important;z-index:2000!important;display:flex;flex-direction:column;align-items:flex-start;gap:0;margin:0;padding:0;border:0;background:transparent;pointer-events:auto}
+#v9-drawing-tools button{width:auto;height:auto;min-width:0;min-height:0;padding:0 clamp(4px,1vw,8px);border:0;background:none;color:#7f8db0;font:700 clamp(18.67px,2.87vh,29.33px)/1.05 -apple-system,BlinkMacSystemFont,sans-serif;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:font-size .35s cubic-bezier(.2,.8,.2,1),color .35s,transform .35s cubic-bezier(.2,.8,.2,1),filter .35s}
+#v9-drawing-tools button[aria-pressed="true"]{font-size:clamp(28px,4.3vh,44px);color:#e8f0ff;transform:translateZ(24px);filter:drop-shadow(0 0 12px rgba(46,230,166,.7)) drop-shadow(0 10px 14px rgba(0,0,0,.6))}
+#v9-drawing-tools button:focus-visible{outline:2px solid #2ee6a6;outline-offset:2px;border-radius:8px}
