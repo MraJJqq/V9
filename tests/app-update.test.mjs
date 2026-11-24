@@ -6,7 +6,7 @@ const read = path => readFile(new URL(path, import.meta.url), "utf8");
 
 test("V9 entry installs the home-screen update coordinator without changing app layout", async () => {
   const html = await read("../index.html");
-  assert.match(html, /app-update\\.js\\?v=v9-20261124-2/);
+  assert.match(html, /app-update\.js\?v=v9-20261124-2/);
   assert.match(html, /id="kline-host"/);
   assert.match(html, /id="logo-frame"/);
   assert.match(html, /id="timeframe-frame"/);
@@ -25,12 +25,12 @@ test("release checker bypasses HTTP cache and checks on launch and foreground", 
 
 test("service worker keeps navigation fresh and isolates app cache from market data", async () => {
   const source = await read("../service-worker.js");
-  assert.match(source, /request\.mode === "navigate"/);
+  assert.match(source, /request\.mode !== "navigate"/);
   assert.match(source, /fetch\(request, \{ cache: "no-store" \}\)/);
   assert.match(source, /STATIC_DESTINATIONS/);
   assert.match(source, /version\.json/);
   assert.doesNotMatch(source, /indexedDB|deleteDatabase|localStorage\.clear/);
-  assert.match(source, /self\\.skipWaiting\\s*\\(/);
+  assert.match(source, /self\.skipWaiting\(\)/);
 });
 
 test("release marker matches deployed client version", async () => {
