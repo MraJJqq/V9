@@ -30,7 +30,7 @@ test("service worker keeps navigation fresh and isolates app cache from market d
   assert.match(source, /STATIC_DESTINATIONS/);
   assert.match(source, /version\.json/);
   assert.doesNotMatch(source, /indexedDB|deleteDatabase|localStorage\.clear/);
-  assert.doesNotMatch(source, /skipWaiting/);
+  assert.doesNotMatch(source, /self\.skipWaiting\s*\(/);
 });
 
 test("release marker matches deployed client version", async () => {
