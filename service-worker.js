@@ -9,10 +9,6 @@ const CACHE_PREFIX = "vegas-v9-static-";
 const CACHE_NAME = CACHE_PREFIX + RELEASE;
 const STATIC_DESTINATIONS = new Set(["script", "style", "image", "font"]);
 
-self.addEventListener("install", event => {
-  event.waitUntil(self.skipWaiting());
-});
-
 self.addEventListener("activate", event => {
   event.waitUntil((async () => {
     const names = (await caches.keys())
@@ -22,10 +18,6 @@ self.addEventListener("activate", event => {
     await Promise.all(names.slice(2).map(name => caches.delete(name)));
     await self.clients.claim();
   })());
-});
-
-self.addEventListener("message", event => {
-  if (event.data?.type === "VEGAS_SKIP_WAITING") void self.skipWaiting();
 });
 
 self.addEventListener("fetch", event => {

@@ -6,7 +6,6 @@
 const BUILD_RELEASE = "v9-20261124-2";
 const BASE_URL = new URL("./", import.meta.url);
 const RELOAD_KEY = "vegas-v9-update-reload:";
-const CONTROLLER_RELOAD_KEY = "vegas-v9-controller-reload";
 let checking = false;
 
 async function checkRelease() {
@@ -41,9 +40,6 @@ async function registerWorker() {
       updateViaCache: "none"
     });
     await registration.update();
-    if (registration.waiting) {
-      registration.waiting.postMessage({ type: "VEGAS_SKIP_WAITING" });
-    }
   } catch (error) {
     console.warn("[VEGAS V9 update] service worker unavailable", error);
   }
@@ -60,22 +56,8 @@ async function refreshCheck() {
   }
 }
 
-const hadControllerAtStartup = !!navigator.serviceWorker?.controller;
-if (hadControllerAtStartup && navigator.serviceWorker) {
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    let reloaded = false;
-    try { reloaded = sessionStorage.getItem(CONTROLLER_RELOAD_KEY) === "1"; } catch (_) {}
-    if (reloaded) return;
-    try { sessionStorage.setItem(CONTROLLER_RELOAD_KEY, "1"); } catch (_) {}
-    location.reload();
-  });
-}
-
 void refreshCheck();
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") {
-    try { sessionStorage.removeItem(CONTROLLER_RELOAD_KEY); } catch (_) {}
-    void refreshCheck();
-  }
+  if (document.visibilityState === "visible") void refreshCheck();
 });
 window.addEventListener("pageshow", () => void refreshCheck());

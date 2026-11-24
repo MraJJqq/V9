@@ -21,6 +21,7 @@ test("release checker bypasses HTTP cache and checks on launch and foreground", 
   assert.match(source, /visibilitychange/);
   assert.match(source, /pageshow/);
   assert.match(source, /sessionStorage\.setItem/);
+  assert.doesNotMatch(source, /controllerchange|VEGAS_SKIP_WAITING/);
 });
 
 test("service worker keeps navigation fresh and isolates app cache from market data", async () => {
@@ -30,7 +31,7 @@ test("service worker keeps navigation fresh and isolates app cache from market d
   assert.match(source, /STATIC_DESTINATIONS/);
   assert.match(source, /version\.json/);
   assert.doesNotMatch(source, /indexedDB|deleteDatabase|localStorage\.clear/);
-  assert.match(source, /self\.skipWaiting\(\)/);
+  assert.doesNotMatch(source, /skipWaiting|VEGAS_SKIP_WAITING/);
 });
 
 test("release marker matches deployed client version", async () => {
