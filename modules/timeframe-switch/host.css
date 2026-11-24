@@ -1,6 +1,6 @@
 /* Timeframe iframe presentation and interaction. Parent viewport sizing is owned by full-screen-dynamic.css. */
 #timeframe-frame{
- z-index:2147483647!important;
+ z-index:2000!important;
  display:block!important;
  margin:0!important;
  padding:0!important;
