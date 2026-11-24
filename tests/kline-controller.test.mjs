@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import "fake-indexeddb/auto";
 
-const { aggregate2H, createGateKlineController, expectedLatestCandleTimestamp, findCandleGaps, GATE_REQUEST_TIMEOUT_MS, hasLatestCoverage, historyRetryDelay, twoHourRangeWindows, mergePendingWriteRows } = await import("../kline/gate-kline-controller.js");
+const { aggregate2H, buildPatrolPlan, createGateKlineController, expectedLatestCandleTimestamp, findCandleGaps, GATE_REQUEST_TIMEOUT_MS, hasLatestCoverage, historyRetryDelay, twoHourRangeWindows, mergePendingWriteRows } = await import("../kline/gate-kline-controller.js");
 const hour = 3600;
 const candle = (t, close = 100) => ({ t, o: close, h: close + 2, l: close - 2, c: close + 1 });
 const utc = value => Math.floor(Date.parse(value) / 1000);
@@ -63,6 +63,20 @@ function readStore(storeName, key) {
     };
   });
 }
+
+test("builds a unique full-universe patrol plan for all 22 instruments and five timeframes", () => {
+  const instruments = Array.from({ length: 22 }, (_, index) => ({
+    symbol: "SIM" + index, gateContract: "SIM" + index + "_USDT"
+  }));
+  const plan = buildPatrolPlan(instruments, "SIM7", "8H");
+  assert.equal(plan.length, 110);
+  assert.equal(new Set(plan.map(task => task.key)).size, 110);
+  assert.deepEqual(plan.slice(0, 5).map(task => task.timeframe), ["8H", "1H", "2H", "4H", "D"]);
+  assert.equal(plan[0].symbol, "SIM7");
+  assert.equal(plan[0].contract, "SIM7_USDT");
+  assert.equal(plan[5].symbol, "SIM0");
+  assert.ok(plan.every(task => ["1H", "2H", "4H", "8H", "D"].includes(task.timeframe)));
+});
 
 test("daily candles align to Beijing midnight rather than UTC midnight", () => {
   const first = candle(utc("2026-11-20T16:00:00Z")), second = candle(utc("2026-11-21T16:00:00Z"));
