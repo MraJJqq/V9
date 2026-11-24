@@ -7,7 +7,7 @@ export function mountV9DrawingTools({app, onModeChange=()=>{}}){
  const ctx=canvas.getContext("2d");
  const bar=document.createElement("div");
  bar.id="v9-drawing-tools";
- bar.innerHTML='<button type="button" data-action="pen" aria-pressed="false" aria-label="画笔">✏️</button><button type="button" data-action="clear" aria-label="清空">🗑️</button>';
+ bar.innerHTML='<button type="button" data-action="pen" aria-pressed="false" aria-label="画笔">✏︎</button><button type="button" data-action="clear" aria-label="清空">🗑︎</button>';
  app.append(canvas,bar);
  let symbol="",enabled=false,dpr=1,strokes=[],active=null,destroyed=false;
  const key=()=> "vegas-v9-drawings:"+encodeURIComponent(symbol);
@@ -24,18 +24,26 @@ export function mountV9DrawingTools({app, onModeChange=()=>{}}){
  }
  function paintStroke(s){
   if(!s.points.length)return;
+  const pts=s.points;
   ctx.save();ctx.lineCap="round";ctx.lineJoin="round";
-  ctx.strokeStyle="rgba(255,226,35,.27)";ctx.lineWidth=2.2;ctx.beginPath();
-  s.points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();
-  ctx.strokeStyle="rgba(255,226,35,.22)";ctx.lineWidth=1.3;ctx.beginPath();
-  s.points.forEach((p,i)=>i?ctx.lineTo(p.x+.25,p.y-.15):ctx.moveTo(p.x+.25,p.y-.15));ctx.stroke();
-  for(let i=0;i<s.points.length;i++){
-   const p=s.points[i];
-   for(let j=0;j<3;j++){
-    const seed=Math.sin((i+1)*127.1+(j+1)*311.7)*43758.5453,rand=seed-Math.floor(seed);
-    const a=(rand-.5)*2.6,b=(Math.sin(seed*1.7)-Math.floor(Math.sin(seed*1.7)))*2.2;
-    ctx.fillStyle="rgba(255,226,35,.22)";ctx.fillRect(p.x+a,p.y+b,.8,.8);
+  // Smooth the pointer samples into a continuous, translucent highlighter stroke.
+  const trace=()=>{
+   ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
+   if(pts.length===1){ctx.lineTo(pts[0].x+.01,pts[0].y+.01);return;}
+   for(let i=1;i<pts.length-1;i++){
+    const midX=(pts[i].x+pts[i+1].x)/2,midY=(pts[i].y+pts[i+1].y)/2;
+    ctx.quadraticCurveTo(pts[i].x,pts[i].y,midX,midY);
    }
+   const last=pts[pts.length-1];ctx.lineTo(last.x,last.y);
+  };
+  // Soft outer edge, broad marker body, and a faint uneven pigment texture.
+  trace();ctx.strokeStyle="rgba(255,224,48,.13)";ctx.lineWidth=8;ctx.stroke();
+  trace();ctx.strokeStyle="rgba(255,226,45,.29)";ctx.lineWidth=5.5;ctx.stroke();
+  trace();ctx.strokeStyle="rgba(255,245,150,.12)";ctx.lineWidth=2.2;ctx.stroke();
+  for(let i=0;i<pts.length;i+=2){
+   const p=pts[i],jitter=Math.sin((i+1)*12.9898)*.55;
+   ctx.beginPath();ctx.ellipse(p.x+jitter,p.y-jitter*.6,1.05,.65,0,0,Math.PI*2);
+   ctx.fillStyle="rgba(255,239,105,.12)";ctx.fill();
   }
   ctx.restore();
  }
