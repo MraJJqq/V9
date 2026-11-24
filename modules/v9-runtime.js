@@ -1,4 +1,5 @@
 import { createLifecycleScope } from "./shared/lifecycle.js";
+import { mountV9DrawingTools } from "./drawing-tools/v9-drawing-tools.js";
 import { createPageLifecycle } from "./shared/page-lifecycle-v9.js";
 import { INSTRUMENTS, GATE_CONTRACTS, createSessionQueue } from "./shared/universe-v9.js";
 import { createV9KlineView } from "../kline/v9-kline-view.js?v=v9-local-kline-20261123-1";
@@ -38,6 +39,7 @@ function setInteractionLock(source,active){
  interactionResumeTimer=setTimeout(()=>{interactionResumeTimer=null;if(!destroyed&&!isRuntimeHidden()&&!interactionLocks.size&&!userRotationPaused)scheduleSymbolRotation();},0);
 }
 const view=createV9KlineView({host:klineHost,onInteractionChange:setInteractionLock});
+const drawingTools=mountV9DrawingTools({app,onModeChange:active=>setInteractionLock("drawing-tools",active)});
 function setUserRotationPaused(paused){
  if(userRotationPaused===paused)return;
  userRotationPaused=paused;
@@ -52,7 +54,7 @@ const rotationPause=createKlineRotationPause({target:klineHost,onToggle:()=>setU
 const controller=createGateKlineController({frame:{contentWindow:view},instruments:GATE_INSTRUMENTS,isHidden:isRuntimeHidden,onState:s=>{if(s.status==="gap-patrol-started"||s.status==="gap-patrol-completed")console.info("[VEGAS V9 K-line patrol]",s);if(s.status==="request-failed"||s.status==="cache-unavailable"||s.status==="cache-write-failed")console.warn("[VEGAS V9 data]",s);}});
 lifecycle.listen(window,"unhandledrejection",event=>console.error("[VEGAS V9 unhandled rejection]",event.reason));
 lifecycle.listen(window,"error",event=>console.error("[VEGAS V9 runtime error]",event.message,event.filename,event.lineno));
-function selectSymbol(symbol,patrolOnOpen=false){const item=INSTRUMENTS.find(x=>x.symbol===symbol),contract=GATE_CONTRACTS[symbol];if(!item||!contract){console.warn("[VEGAS V9] Unknown symbol:",symbol);return false;}void controller.select(symbol,contract,timeframe,patrolOnOpen);return true;}
+function selectSymbol(symbol,patrolOnOpen=false){const item=INSTRUMENTS.find(x=>x.symbol===symbol),contract=GATE_CONTRACTS[symbol];if(!item||!contract){console.warn("[VEGAS V9] Unknown symbol:",symbol);return false;}drawingTools.setSymbol(symbol);void controller.select(symbol,contract,timeframe,patrolOnOpen);return true;}
 function clearRotationTimers(){if(rotationTimer!==null){clearTimeout(rotationTimer);rotationTimer=null;}if(transitionTimer!==null){clearTimeout(transitionTimer);transitionTimer=null;}}
 function desiredTarget(){return queuedTarget||activeTarget||{symbolIndex:logoIndex,timeframe};}
 function beginTransition(target){
