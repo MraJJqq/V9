@@ -10,7 +10,7 @@ export function mountV9DrawingTools({app, onModeChange=()=>{}}){
  bar.innerHTML='<button type="button" data-action="pen" aria-pressed="false" aria-label="画笔">✏️</button><button type="button" data-action="clear" aria-label="清空">🗑︎</button>';
  app.append(canvas,bar);
  let symbol="",enabled=false,dpr=1,strokes=[],active=null,activePointerId=null,destroyed=false;
- const key()=> "vegas-v9-drawings:"+encodeURIComponent(symbol);
+ const key=()=> "vegas-v9-drawings:"+encodeURIComponent(symbol);
  const validSymbol=s=>typeof s==="string"&&/^[A-Z0-9_:-]{2,40}$/.test(s);
  function resize(){
   const oldW=canvas.width/dpr||1,oldH=canvas.height/dpr||1;
