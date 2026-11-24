@@ -1,24 +1,31 @@
 /*
  * VEGAS V9 app-shell cache.
- * Only same-origin static app resources are cached. Market data and IndexedDB
- * are deliberately outside this cache and are never cleared by this worker.
+ * Network-first for navigations and static assets keeps Home Screen launches
+ * current when online. Cached assets are fallback-only when the network fails.
+ * Market data, IndexedDB and user settings are never cached or cleared here.
  */
-const RELEASE = "v9-20261124-1";
+const RELEASE = "v9-20261124-2";
 const CACHE_PREFIX = "vegas-v9-static-";
 const CACHE_NAME = CACHE_PREFIX + RELEASE;
 const STATIC_DESTINATIONS = new Set(["script", "style", "image", "font"]);
 
-self.addEventListener("install", () => {
-  // Do not skipWaiting: an active session must finish on its current release.
+self.addEventListener("install", event => {
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener("activate", event => {
   event.waitUntil((async () => {
-    const names = (await caches.keys()).filter(name => name.startsWith(CACHE_PREFIX));
-    const previous = names.filter(name => name !== CACHE_NAME).sort().reverse();
-    await Promise.all(previous.slice(1).map(name => caches.delete(name)));
+    const names = (await caches.keys())
+      .filter(name => name.startsWith(CACHE_PREFIX))
+      .sort()
+      .reverse();
+    await Promise.all(names.slice(2).map(name => caches.delete(name)));
     await self.clients.claim();
   })());
+});
+
+self.addEventListener("message", event => {
+  if (event.data?.type === "VEGAS_SKIP_WAITING") void self.skipWaiting();
 });
 
 self.addEventListener("fetch", event => {
@@ -27,41 +34,36 @@ self.addEventListener("fetch", event => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Release metadata must always come from the network, never from this cache.
   if (url.pathname.endsWith("/version.json")) {
     event.respondWith(fetch(request, { cache: "no-store" }));
     return;
   }
 
-  if (request.mode === "navigate") {
-    event.respondWith((async () => {
-      try {
-        const response = await fetch(request, { cache: "no-store" });
-        if (response.ok) {
-          const cache = await caches.open(CACHE_NAME);
-          await cache.put(request, response.clone());
-        }
-        return response;
-      } catch (error) {
-        const cached = await caches.match(request);
-        if (cached) return cached;
-        const fallback = await caches.match(new URL("./", self.registration.scope).href);
-        if (fallback) return fallback;
-        throw error;
-      }
-    })());
-    return;
-  }
+  if (request.mode !== "navigate" && !STATIC_DESTINATIONS.has(request.destination)) return;
 
-  if (!STATIC_DESTINATIONS.has(request.destination)) return;
   event.respondWith((async () => {
-    const cache = await caches.open(CACHE_NAME);
-    const cached = await cache.match(request);
-    if (cached) return cached;
-    const response = await fetch(request);
-    if (response.ok && response.type === "basic") {
-      await cache.put(request, response.clone());
+    try {
+      const response = await fetch(request, { cache: "no-store" });
+      if (response.ok && response.type === "basic") {
+        const cache = await caches.open(CACHE_NAME);
+        await cache.put(request, response.clone());
+      }
+      return response;
+    } catch (error) {
+      const current = await caches.open(CACHE_NAME);
+      const cached = await current.match(request);
+      if (cached) return cached;
+
+      const names = (await caches.keys())
+        .filter(name => name.startsWith(CACHE_PREFIX) && name !== CACHE_NAME)
+        .sort()
+        .reverse();
+      for (const name of names) {
+        const previous = await caches.open(name);
+        const fallback = await previous.match(request);
+        if (fallback) return fallback;
+      }
+      throw error;
     }
-    return response;
   })());
 });
