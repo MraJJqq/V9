@@ -9,8 +9,8 @@ export function mountV9DrawingTools({app, onModeChange=()=>{}}){
  bar.id="v9-drawing-tools";
  bar.innerHTML='<button type="button" data-action="pen" aria-pressed="false" aria-label="画笔">✏️</button><button type="button" data-action="clear" aria-label="清空">🗑︎</button>';
  app.append(canvas,bar);
- let symbol="",enabled=false,dpr=1,strokes=[],active=null,destroyed=false;
- const key=()=> "vegas-v9-drawings:"+encodeURIComponent(symbol);
+ let symbol="",enabled=false,dpr=1,strokes=[],active=null,activePointerId=null,destroyed=false;
+ const key()=> "vegas-v9-drawings:"+encodeURIComponent(symbol);
  const validSymbol=s=>typeof s==="string"&&/^[A-Z0-9_:-]{2,40}$/.test(s);
  function resize(){
   const oldW=canvas.width/dpr||1,oldH=canvas.height/dpr||1;
@@ -80,13 +80,18 @@ export function mountV9DrawingTools({app, onModeChange=()=>{}}){
  }
  function point(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
  function down(e){
-  if(!enabled||!symbol)return;
+  if(!enabled||!symbol||activePointerId!==null)return;
   const y=e.clientY, h=window.innerHeight;
   if(y<Math.min(72,h*.11)||y>h-Math.min(110,h*.18))return;
-  e.preventDefault();canvas.setPointerCapture(e.pointerId);active={points:[point(e)]};redraw();
+  e.preventDefault();activePointerId=e.pointerId;canvas.setPointerCapture(e.pointerId);active={points:[point(e)]};redraw();
  }
- function move(e){if(!active||!enabled)return;e.preventDefault();const p=point(e),last=active.points.at(-1);if(Math.hypot(p.x-last.x,p.y-last.y)<1)return;active.points.push(p);redraw()}
- function up(e){if(!active)return;try{if(canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId)}catch(_){}if(active.points.length)strokes.push(active);active=null;save();redraw()}
+ function move(e){if(!active||!enabled||e.pointerId!==activePointerId)return;e.preventDefault();const p=point(e),last=active.points.at(-1);if(Math.hypot(p.x-last.x,p.y-last.y)<1)return;active.points.push(p);redraw()}
+ function up(e){
+  if(e.pointerId!==activePointerId)return;
+  try{if(canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId)}catch(_){}
+  if(active&&active.points.length)strokes.push(active);
+  active=null;activePointerId=null;save();redraw();
+ }
  bar.addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;
   if(b.dataset.action==="pen")setEnabled(!enabled);
