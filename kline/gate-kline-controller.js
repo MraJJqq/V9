@@ -429,7 +429,6 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
      const message=String(error?.message||error),attempt=(retryAttempts.get(key)||0)+1;
      retryAttempts.set(key,attempt);failed.set(key,message);retryDueAt.set(key,Date.now()+historyRetryDelay(attempt));
      try{
-      const snapshot=await read(key);
       await write(key,[],false,"failed",message);
       await persistRepairTask(key,message,attempt);
      }catch(persistError){onState({status:"repair-task-persist-failed",key,error:String(persistError?.message||persistError)})}
