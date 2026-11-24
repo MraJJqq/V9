@@ -6,6 +6,7 @@ import { createGateKlineController } from "../kline/gate-kline-controller.js?v=v
 import { createKlineRotationPause } from "./kline-rotation-pause.js?v=v9-local-kline-20261123-1";
 
 const lifecycle=createLifecycleScope();
+try{localStorage.removeItem("vegas-v9-signal-lifecycle-v1")}catch(_){}
 let pageLifecycle=null;
 const isRuntimeHidden=()=>pageLifecycle?pageLifecycle.isSuspended():document.hidden;
 const app=document.getElementById("app"),rollingFrame=document.getElementById("rolling-cards-frame");
