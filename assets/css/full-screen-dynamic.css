@@ -26,3 +26,9 @@ body{position:fixed;inset:0;overscroll-behavior:none}
 #v9-drawing-tools button[aria-pressed="true"]{font-size:clamp(28px,4.3vh,44px);color:#e8f0ff;transform:translateZ(24px);filter:drop-shadow(0 0 12px rgba(46,230,166,.7)) drop-shadow(0 10px 14px rgba(0,0,0,.6))}
 #v9-drawing-tools button:focus-visible{outline:2px solid #2ee6a6;outline-offset:2px;border-radius:8px}
 @supports not(height:31.17dvh){#v9-drawing-tools{height:31.17vh!important}}
+
+
+/* Drawing toolbar hit-area reliability: keep controls flat and at least 44px tall. */
+#v9-drawing-tools{perspective:none!important}
+#v9-drawing-tools button{position:relative;z-index:1;box-sizing:border-box;flex:0 0 max(44px,20%);height:max(44px,20%);min-height:44px;touch-action:manipulation;transform:none!important;transform-style:flat;transition:font-size .35s cubic-bezier(.2,.8,.2,1),color .35s,filter .35s}
+#v9-drawing-tools button[aria-pressed="true"]{transform:none!important}
