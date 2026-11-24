@@ -143,7 +143,7 @@ function startForegroundTimers(){if(destroyed||isRuntimeHidden())return;if(!fore
 function stopForegroundTimers(){foregroundInterval?.();foregroundInterval=null;quoteAbort?.abort();quoteAbort=null;}
 function suspendRuntime(){if(destroyed)return;interactionLocks.clear();if(interactionResumeTimer!==null){clearTimeout(interactionResumeTimer);interactionResumeTimer=null;}document.documentElement.classList.add("vegas-page-hidden");stopForegroundTimers();stopSymbolRotation();controller.suspend();}
 function resumeRuntime(){if(destroyed||isRuntimeHidden())return;document.documentElement.classList.remove("vegas-page-hidden");controller.resume();startForegroundTimers();startSymbolRotation();refreshCardQuotes();}
-function teardown(){if(destroyed)return;destroyed=true;if(interactionResumeTimer!==null)clearTimeout(interactionResumeTimer);interactionLocks.clear();pageLifecycle?.destroy();stopForegroundTimers();stopSymbolRotation();controller.destroy();rotationPause.destroy();view.destroy();lifecycle.destroy();}
+function teardown(){if(destroyed)return;destroyed=true;drawingTools.destroy();if(interactionResumeTimer!==null)clearTimeout(interactionResumeTimer);interactionLocks.clear();pageLifecycle?.destroy();stopForegroundTimers();stopSymbolRotation();controller.destroy();rotationPause.destroy();view.destroy();lifecycle.destroy();}
 pageLifecycle=createPageLifecycle({documentRef:document,windowRef:window,onSuspend:suspendRuntime,onResume:resumeRuntime,onPageHideFinal:teardown});
 document.documentElement.classList.toggle("vegas-page-hidden",isRuntimeHidden());
 lifecycle.listen(window,"beforeunload",teardown,{once:true});
