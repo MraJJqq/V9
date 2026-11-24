@@ -41,7 +41,7 @@ export function buildPatrolPlan(instruments=[],activeSymbol="",activeTimeframe="
  const ordered=active?[active,...instruments.filter(item=>item!==active)]:instruments;
  const periods=[activeTimeframe,...TIMEFRAMES.filter(tf=>tf!==activeTimeframe)];
  return ordered.flatMap(item=>periods.map(tf=>{
-  const contract=item.gateContract||item.contract;
+  const contract=item.gateContract||String(item.contract||"").replace(/USDT$/,"_USDT");
   return {symbol:item.symbol,contract,timeframe:tf,key:keyOf(contract,tf)};
  }));
 }
