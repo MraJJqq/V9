@@ -22,29 +22,45 @@ export function mountV9DrawingTools({app, onModeChange=()=>{}}){
   }
   redraw();
  }
+ const COLOR = '#FFEB3B';
+ const WIDTH = 7;
+ const GRAIN = 0.55;
+ function stamp(ctx,x,y,r,dpr=1){
+  x*=dpr;y*=dpr;r*=dpr;
+  ctx.fillStyle=COLOR;
+  ctx.globalAlpha=0.9;
+  ctx.beginPath();ctx.arc(x,y,r*0.62,0,6.283);ctx.fill();
+  const n=Math.ceil(r*r*0.9);
+  for(let i=0;i<n;i++){
+   const a=Math.random()*6.283,d=r*Math.sqrt(Math.random());
+   if(Math.random()<GRAIN*(d/r))continue;
+   ctx.globalAlpha=0.5+Math.random()*0.5;
+   const s=(0.4+Math.random()*0.9)*dpr;
+   ctx.fillRect(x+Math.cos(a)*d,y+Math.sin(a)*d,s,s);
+  }
+  ctx.fillStyle='#000';
+  const h=Math.ceil(r*GRAIN*1.2);
+  for(let i=0;i<h;i++){
+   const a=Math.random()*6.283,d=r*0.7*Math.sqrt(Math.random());
+   ctx.globalAlpha=0.55;
+   ctx.fillRect(x+Math.cos(a)*d,y+Math.sin(a)*d,dpr*0.8,dpr*0.8);
+  }
+  ctx.globalAlpha=1;
+ }
+ function line(ctx,a,b,dpr=1){
+  const dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy);
+  const step=Math.max(WIDTH*0.18,0.6);
+  for(let t=0;t<=dist;t+=step){
+   const k=dist?t/dist:0;
+   stamp(ctx,a.x+dx*k,a.y+dy*k,WIDTH/2,dpr);
+  }
+ }
  function paintStroke(s){
   if(!s.points.length)return;
+  ctx.save();
   const pts=s.points;
-  ctx.save();ctx.lineCap="round";ctx.lineJoin="round";
-  // Smooth the pointer samples into a continuous, translucent highlighter stroke.
-  const trace=()=>{
-   ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
-   if(pts.length===1){ctx.lineTo(pts[0].x+.01,pts[0].y+.01);return;}
-   for(let i=1;i<pts.length-1;i++){
-    const midX=(pts[i].x+pts[i+1].x)/2,midY=(pts[i].y+pts[i+1].y)/2;
-    ctx.quadraticCurveTo(pts[i].x,pts[i].y,midX,midY);
-   }
-   const last=pts[pts.length-1];ctx.lineTo(last.x,last.y);
-  };
-  // Soft outer edge, broad marker body, and a faint uneven pigment texture.
-  trace();ctx.strokeStyle="rgba(255,224,48,.13)";ctx.lineWidth=8;ctx.stroke();
-  trace();ctx.strokeStyle="rgba(255,226,45,.29)";ctx.lineWidth=5.5;ctx.stroke();
-  trace();ctx.strokeStyle="rgba(255,245,150,.12)";ctx.lineWidth=2.2;ctx.stroke();
-  for(let i=0;i<pts.length;i+=2){
-   const p=pts[i],jitter=Math.sin((i+1)*12.9898)*.55;
-   ctx.beginPath();ctx.ellipse(p.x+jitter,p.y-jitter*.6,1.05,.65,0,0,Math.PI*2);
-   ctx.fillStyle="rgba(255,239,105,.12)";ctx.fill();
-  }
+  if(pts.length===1)stamp(ctx,pts[0].x,pts[0].y,WIDTH/2,1);
+  else for(let i=1;i<pts.length;i++)line(ctx,pts[i-1],pts[i],1);
   ctx.restore();
  }
  function redraw(){
