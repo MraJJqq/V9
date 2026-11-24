@@ -51,7 +51,7 @@ const rotationPause=createKlineRotationPause({target:klineHost,onToggle:()=>setU
 const controller=createGateKlineController({frame:{contentWindow:view},instruments:GATE_INSTRUMENTS,isHidden:isRuntimeHidden,onState:s=>{if(s.status==="request-failed"||s.status==="cache-unavailable"||s.status==="cache-write-failed")console.warn("[VEGAS V9 data]",s);}});
 lifecycle.listen(window,"unhandledrejection",event=>console.error("[VEGAS V9 unhandled rejection]",event.reason));
 lifecycle.listen(window,"error",event=>console.error("[VEGAS V9 runtime error]",event.message,event.filename,event.lineno));
-function selectSymbol(symbol){const item=INSTRUMENTS.find(x=>x.symbol===symbol),contract=GATE_CONTRACTS[symbol];if(!item||!contract){console.warn("[VEGAS V9] Unknown symbol:",symbol);return false;}void controller.select(symbol,contract,timeframe);return true;}
+function selectSymbol(symbol,patrolOnOpen=false){const item=INSTRUMENTS.find(x=>x.symbol===symbol),contract=GATE_CONTRACTS[symbol];if(!item||!contract){console.warn("[VEGAS V9] Unknown symbol:",symbol);return false;}void controller.select(symbol,contract,timeframe,patrolOnOpen);return true;}
 function clearRotationTimers(){if(rotationTimer!==null){clearTimeout(rotationTimer);rotationTimer=null;}if(transitionTimer!==null){clearTimeout(transitionTimer);transitionTimer=null;}}
 function desiredTarget(){return queuedTarget||activeTarget||{symbolIndex:logoIndex,timeframe};}
 function beginTransition(target){
@@ -164,6 +164,6 @@ function initializeCards(){
  return ready;
 }
 if(!initializeCards()&&document.readyState!=="complete")lifecycle.listen(window,"load",initializeCards,{once:true});
-selectSymbol(sessionQueue[logoIndex].symbol);sendTimeframeState();startSymbolRotation();refreshCardQuotes();startForegroundTimers();
+selectSymbol(sessionQueue[logoIndex].symbol,true);sendTimeframeState();startSymbolRotation();refreshCardQuotes();startForegroundTimers();
 window.V9Kline=Object.freeze({select:selectSymbol,setTimeframe:switchTimeframe,refresh:()=>controller.refresh(),get state(){return controller.state;}});
 console.info("[VEGAS V9] mounted",INSTRUMENTS.length,"Gate K-line + 5 timeframes + local cards");
