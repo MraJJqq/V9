@@ -87,7 +87,7 @@ export function mountV9DrawingTools({app,onModeChange=()=>{}}){
  }
  function save(){if(!symbol)return;try{localStorage.setItem(key(),JSON.stringify(strokes));}catch(e){console.warn("[VEGAS V9 drawing] save failed",e);}}
  function clearHold(){if(holdTimer!==null){clearTimeout(holdTimer);holdTimer=null;}}
- function finishActive(){clearHold();if(active?.points?.length){strokes.push(active);save();}active=null;activeId=null;redraw();}
+ function finishActive(){clearHold();if(active?.points?.length){strokes.push(active);save();}active=null;activeId=null;}
  function resize(){
   const rect=app.getBoundingClientRect(),nextDpr=Math.min(window.devicePixelRatio||1,2),w=Math.max(1,rect.width),h=Math.max(1,rect.height);
   if(viewW!==w||viewH!==h){const sx=w/viewW,sy=h/viewH;const scalePoint=p=>({x:p.x*sx,y:p.y*sy});
@@ -172,7 +172,7 @@ export function mountV9DrawingTools({app,onModeChange=()=>{}}){
   if(!enabled||!symbol||activeId!==null)return;
   const y=e.clientY,h=window.innerHeight;if(y<Math.min(72,h*.11)||y>h-Math.min(110,h*.18))return;
   e.preventDefault();activeId=e.pointerId;try{canvas.setPointerCapture(e.pointerId);}catch(_){}
-  active={points:[point(e)],shape:null,locked:false};redraw();
+  active={points:[point(e)],shape:null,locked:false};stamp(active.points[0].x,active.points[0].y,WIDTH/2);
  }
  function move(e){
   if(!active||!enabled||e.pointerId!==activeId)return;e.preventDefault();
@@ -185,9 +185,8 @@ export function mountV9DrawingTools({app,onModeChange=()=>{}}){
     continue;
    }
    if(active.locked)continue;
-   active.points.push(p);armRecognition();
+   line(last,p);active.points.push(p);armRecognition();
   }
-  redraw();
  }
  function up(e){
   if(e.pointerId!==activeId)return;
