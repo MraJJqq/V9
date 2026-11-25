@@ -1,0 +1,17 @@
+#bottom-signal{
+  color:#f2f5ff;
+  background:transparent;
+  border:0;
+  padding:0;
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:13px;
+  font-weight:700;
+  line-height:1.2;
+  text-align:right;
+  white-space:nowrap;
+  overflow:hidden;
+  pointer-events:none;
+  -webkit-user-select:none;
+  user-select:none;
+}

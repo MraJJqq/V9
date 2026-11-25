@@ -3,7 +3,7 @@
  * Release metadata is always fetched from the network. App data and UI state
  * are not touched by this updater.
  */
-const BUILD_RELEASE = "v9-20261124-2";
+const BUILD_RELEASE = "v9-20261125-1";
 const BASE_URL = new URL("./", import.meta.url);
 const RELOAD_KEY = "vegas-v9-update-reload:";
 let checking = false;

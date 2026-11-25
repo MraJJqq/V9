@@ -32,3 +32,7 @@ body{position:fixed;inset:0;overscroll-behavior:none}
 #v9-drawing-tools{perspective:none!important}
 #v9-drawing-tools button{position:relative;z-index:1;box-sizing:border-box;flex:0 0 max(44px,20%);height:max(44px,20%);min-height:44px;touch-action:manipulation;transform:none!important;transform-style:flat;transition:font-size .35s cubic-bezier(.2,.8,.2,1),color .35s,filter .35s}
 #v9-drawing-tools button[aria-pressed="true"]{transform:none!important}
+
+
+/* Bottom Vegas signals: position and safe-area geometry are owned by the full-screen system. */
+#bottom-signal{position:fixed!important;right:max(8px,var(--v9-safe-right))!important;bottom:var(--v9-safe-bottom)!important;z-index:1200!important;max-width:calc(100vw - 16px - var(--v9-safe-left) - var(--v9-safe-right));}

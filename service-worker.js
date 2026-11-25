@@ -4,7 +4,7 @@
  * current when online. Cached assets are fallback-only when the network fails.
  * Market data, IndexedDB and user settings are never cached or cleared here.
  */
-const RELEASE = "v9-20261124-2";
+const RELEASE = "v9-20261125-1";
 const CACHE_PREFIX = "vegas-v9-static-";
 const CACHE_NAME = CACHE_PREFIX + RELEASE;
 const STATIC_DESTINATIONS = new Set(["script", "style", "image", "font"]);
