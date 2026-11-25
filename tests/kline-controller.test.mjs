@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import "fake-indexeddb/auto";
 
-const { aggregate2H, buildPatrolPlan, createGateKlineController, expectedLatestCandleTimestamp, findCandleGaps, GATE_REQUEST_TIMEOUT_MS, hasLatestCoverage, historyRetryDelay, twoHourRangeWindows, mergePendingWriteRows } = await import("../kline/gate-kline-controller.js");
+const { aggregate2H, buildPatrolPlan, createGateKlineController, expectedLatestCandleTimestamp, findCandleGaps, findMissingRangeTimestamps, isValidCandle, GATE_REQUEST_TIMEOUT_MS, hasLatestCoverage, historyRetryDelay, twoHourRangeWindows, mergePendingWriteRows } = await import("../kline/gate-kline-controller.js");
 const hour = 3600;
 const candle = (t, close = 100) => ({ t, o: close, h: close + 2, l: close - 2, c: close + 1 });
 const utc = value => Math.floor(Date.parse(value) / 1000);
@@ -96,6 +96,22 @@ test("detects isolated and consecutive historical gaps", () => {
     { from: hour, to: hour, missingCount: 1, misaligned: false },
     { from: 3 * hour, to: 5 * hour, missingCount: 3, misaligned: false }
   ]);
+});
+
+test("validates OHLC structure and timeframe alignment before cache admission", () => {
+  assert.equal(isValidCandle(candle(hour), "1H"), true);
+  assert.equal(isValidCandle(candle(hour + 60), "1H"), false);
+  assert.equal(isValidCandle({ ...candle(hour), h: 1 }, "1H"), false);
+  assert.equal(isValidCandle({ ...candle(hour), l: 1000 }, "1H"), false);
+  assert.equal(isValidCandle(candle(utc("2026-11-20T16:00:00Z")), "D"), true);
+  assert.equal(isValidCandle(candle(utc("2026-11-20T00:00:00Z")), "D"), false);
+});
+
+test("verifies every expected timestamp in a requested repair range", () => {
+  const result = findMissingRangeTimestamps([candle(hour), candle(3 * hour)], "1H", hour, 3 * hour);
+  assert.deepEqual(result, { missingCount: 1, samples: [2 * hour] });
+  const complete = findMissingRangeTimestamps([candle(hour), candle(2 * hour), candle(3 * hour)], "1H", hour, 3 * hour);
+  assert.deepEqual(complete, { missingCount: 0, samples: [] });
 });
 
 test("rejects off-grid and non-integral candle timestamps", () => {
