@@ -40,17 +40,24 @@ function setInteractionLock(source,active){
 }
 const view=createV9KlineView({host:klineHost,onInteractionChange:setInteractionLock});
 const drawingTools=mountV9DrawingTools({app,onModeChange:active=>setInteractionLock("drawing-tools",active)});
-let drawingLayoutRefresh=null;
+let drawingLayoutRefresh=null,drawingLayoutRefreshSecond=null;
 function refreshDrawingLayout(){
  if(destroyed)return;
  drawingLayoutRefresh?.();
+ drawingLayoutRefreshSecond?.();
+ // iOS rotation can report the new orientation before viewport geometry settles.
+ // Wait two animation frames so the shared layout and hit regions use final dimensions.
  drawingLayoutRefresh=lifecycle.animationFrame(()=>{
   drawingLayoutRefresh=null;
-  drawingTools.refreshLayout();
+  drawingLayoutRefreshSecond=lifecycle.animationFrame(()=>{
+   drawingLayoutRefreshSecond=null;
+   drawingTools.refreshLayout();
+  });
  });
 }
 lifecycle.listen(window,"resize",refreshDrawingLayout,{passive:true});
 lifecycle.listen(window,"orientationchange",refreshDrawingLayout,{passive:true});
+if(window.screen?.orientation)lifecycle.listen(window.screen.orientation,"change",refreshDrawingLayout,{passive:true});
 if(window.visualViewport)lifecycle.listen(window.visualViewport,"resize",refreshDrawingLayout,{passive:true});
 function setUserRotationPaused(paused){
  if(userRotationPaused===paused)return;
@@ -154,7 +161,7 @@ async function refreshCardQuotes(){
 function startForegroundTimers(){if(destroyed||isRuntimeHidden())return;if(!foregroundInterval)foregroundInterval=lifecycle.interval(()=>{refreshCardQuotes();void controller.refresh();},300000);}
 function stopForegroundTimers(){foregroundInterval?.();foregroundInterval=null;quoteAbort?.abort();quoteAbort=null;}
 function suspendRuntime(){if(destroyed)return;interactionLocks.clear();if(interactionResumeTimer!==null){clearTimeout(interactionResumeTimer);interactionResumeTimer=null;}document.documentElement.classList.add("vegas-page-hidden");stopForegroundTimers();stopSymbolRotation();controller.suspend();}
-function resumeRuntime(){if(destroyed||isRuntimeHidden())return;document.documentElement.classList.remove("vegas-page-hidden");controller.resume();startForegroundTimers();startSymbolRotation();refreshCardQuotes();}
+function resumeRuntime(){if(destroyed||isRuntimeHidden())return;document.documentElement.classList.remove("vegas-page-hidden");controller.resume();refreshDrawingLayout();startForegroundTimers();startSymbolRotation();refreshCardQuotes();}
 function teardown(){if(destroyed)return;destroyed=true;drawingTools.destroy();if(interactionResumeTimer!==null)clearTimeout(interactionResumeTimer);interactionLocks.clear();pageLifecycle?.destroy();stopForegroundTimers();stopSymbolRotation();controller.destroy();rotationPause.destroy();view.destroy();lifecycle.destroy();}
 pageLifecycle=createPageLifecycle({documentRef:document,windowRef:window,onSuspend:suspendRuntime,onResume:resumeRuntime,onPageHideFinal:teardown});
 document.documentElement.classList.toggle("vegas-page-hidden",isRuntimeHidden());
