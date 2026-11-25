@@ -1,105 +1,215 @@
-/* V9 drawing tools: isolated overlay; strokes persist per instrument, shared across timeframes. */
-export function mountV9DrawingTools({app, onModeChange=()=>{}}){
+/* V9 drawing engine: crayon texture + pause-based shape recognition. */
+export function mountV9DrawingTools({app,onModeChange=()=>{}}){
  if(!app)throw new TypeError("V9 drawing app root is required");
- const canvas=document.createElement("canvas");
- canvas.id="v9-drawing-layer";
- canvas.setAttribute("aria-label","交易图表绘图层");
- const ctx=canvas.getContext("2d");
- const bar=document.createElement("div");
- bar.id="v9-drawing-tools";
+ const canvas=document.createElement("canvas");canvas.id="v9-drawing-layer";canvas.setAttribute("aria-label","交易图表绘图层");
+ const ctx=canvas.getContext("2d",{alpha:true});
+ const bar=document.createElement("div");bar.id="v9-drawing-tools";
  bar.innerHTML='<button type="button" data-action="pen" aria-pressed="false" aria-label="画笔">✏️</button><button type="button" data-action="clear" aria-label="清空">🗑︎</button>';
  app.append(canvas,bar);
- let symbol="",enabled=false,dpr=1,strokes=[],active=null,activePointerId=null,destroyed=false;
+
+ let symbol="",enabled=false,dpr=1,strokes=[],active=null,activeId=null,destroyed=false,holdTimer=null;
+ let viewW=1,viewH=1;
+ const WIDTH=9,HOLD_MS=450,COLOR=[252,245,85];
  const key=()=> "vegas-v9-drawings:"+encodeURIComponent(symbol);
  const validSymbol=s=>typeof s==="string"&&/^[A-Z0-9_:-]{2,40}$/.test(s);
- function resize(){
-  const oldW=canvas.width/dpr||1,oldH=canvas.height/dpr||1;
-  const rect=app.getBoundingClientRect();dpr=Math.min(window.devicePixelRatio||1,2);
-  canvas.width=Math.max(1,Math.round(rect.width*dpr));canvas.height=Math.max(1,Math.round(rect.height*dpr));
-  canvas.style.width=rect.width+"px";canvas.style.height=rect.height+"px";
-  if(oldW!==rect.width||oldH!==rect.height){
-   strokes=strokes.map(s=>({...s,points:s.points.map(p=>({x:p.x*rect.width/oldW,y:p.y*rect.height/oldH}))}));
+ const brushCanvas=document.createElement("canvas"),brushCtx=brushCanvas.getContext("2d");
+ const tileCanvas=document.createElement("canvas");
+ let tilePattern=null,brushKey="",brushGradient=null,brushRadius=0,brushSize=0;
+ function makeTile(){
+  const n=160,size=n*n,raw=new Float32Array(size),smooth=new Float32Array(size);
+  for(let i=0;i<size;i++)raw[i]=Math.random();
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+   let v=0,c=0;
+   for(let oy=-2;oy<=2;oy++)for(let ox=-2;ox<=2;ox++){const xx=(x+ox+n)%n,yy=(y+oy+n)%n,w=(ox===0?3:1)*(oy===0?3:1);v+=raw[yy*n+xx]*w;c+=w;}
+   smooth[y*n+x]=v/c;
   }
-  redraw();
+  let mean=0;for(const v of smooth)mean+=v;mean/=size;
+  let variance=0;for(const v of smooth)variance+=(v-mean)**2;const sd=Math.sqrt(variance/size)||1;
+  const pixels=new Uint8ClampedArray(size*4);
+  for(let i=0;i<size;i++){
+   const b=Math.max(.32,Math.min(1,.87+(smooth[i]-mean)/sd*.075));
+   pixels[i*4]=COLOR[0]*b;pixels[i*4+1]=COLOR[1]*b;pixels[i*4+2]=COLOR[2]*Math.pow(b,1.3);pixels[i*4+3]=255;
+  }
+  tileCanvas.width=tileCanvas.height=n;tileCanvas.getContext("2d").putImageData(new ImageData(pixels,n,n),0,0);
+  tilePattern=brushCtx.createPattern(tileCanvas,"repeat");
  }
- const COLOR = '#FFEB3B';
- const WIDTH = 7;
- const GRAIN = 0.55;
- function stamp(ctx,x,y,r,dpr=1){
-  x*=dpr;y*=dpr;r*=dpr;
-  ctx.fillStyle=COLOR;
-  ctx.globalAlpha=0.9;
-  ctx.beginPath();ctx.arc(x,y,r*0.62,0,6.283);ctx.fill();
-  const n=Math.ceil(r*r*0.9);
-  for(let i=0;i<n;i++){
-   const a=Math.random()*6.283,d=r*Math.sqrt(Math.random());
-   if(Math.random()<GRAIN*(d/r))continue;
-   ctx.globalAlpha=0.5+Math.random()*0.5;
-   const s=(0.4+Math.random()*0.9)*dpr;
-   ctx.fillRect(x+Math.cos(a)*d,y+Math.sin(a)*d,s,s);
-  }
-  ctx.fillStyle='#000';
-  const h=Math.ceil(r*GRAIN*1.2);
-  for(let i=0;i<h;i++){
-   const a=Math.random()*6.283,d=r*0.7*Math.sqrt(Math.random());
-   ctx.globalAlpha=0.55;
-   ctx.fillRect(x+Math.cos(a)*d,y+Math.sin(a)*d,dpr*0.8,dpr*0.8);
-  }
-  ctx.globalAlpha=1;
+ makeTile();
+ function prepareBrush(r){
+  const k=r+"_"+dpr;if(k===brushKey)return;brushKey=k;
+  brushRadius=r+2*dpr/3;brushSize=Math.ceil(brushRadius*2)+6;
+  brushCanvas.width=brushCanvas.height=brushSize;
+  brushGradient=brushCtx.createRadialGradient(0,0,0,0,0,brushRadius);
+  [[0,1],[.48,.98],[.68,.82],[.82,.48],[.93,.16],[1,0]].forEach(([p,a])=>brushGradient.addColorStop(p,"rgba(0,0,0,"+a+")"));
  }
- function line(ctx,a,b,dpr=1){
-  const dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy);
-  const step=Math.max(WIDTH*0.18,0.6);
-  for(let t=0;t<=dist;t+=step){
-   const k=dist?t/dist:0;
-   stamp(ctx,a.x+dx*k,a.y+dy*k,WIDTH/2,dpr);
-  }
+ function stamp(x,y,r){
+  x*=dpr;y*=dpr;r*=dpr;prepareBrush(r);
+  const ix=Math.floor(x-brushRadius-2),iy=Math.floor(y-brushRadius-2);
+  brushCtx.setTransform(1,0,0,1,0,0);brushCtx.clearRect(0,0,brushSize,brushSize);
+  brushCtx.setTransform(1,0,0,1,-ix,-iy);brushCtx.fillStyle=tilePattern;brushCtx.fillRect(ix,iy,brushSize,brushSize);
+  brushCtx.setTransform(1,0,0,1,x-ix,y-iy);brushCtx.globalCompositeOperation="destination-in";
+  brushCtx.fillStyle=brushGradient;brushCtx.fillRect(-brushSize,-brushSize,brushSize*2,brushSize*2);
+  brushCtx.setTransform(1,0,0,1,0,0);brushCtx.globalCompositeOperation="source-over";
+  ctx.save();ctx.globalCompositeOperation="lighten";ctx.drawImage(brushCanvas,ix,iy);ctx.restore();
+  brushCtx.globalCompositeOperation="source-over";
  }
- function paintStroke(s){
-  if(!s.points.length)return;
-  ctx.save();
-  const pts=s.points;
-  if(pts.length===1)stamp(ctx,pts[0].x,pts[0].y,WIDTH/2,1);
-  else for(let i=1;i<pts.length;i++)line(ctx,pts[i-1],pts[i],1);
-  ctx.restore();
+ function line(a,b){
+  const dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy),step=Math.max(WIDTH*.25,1);
+  for(let t=0;t<=dist;t+=step){const q=dist?t/dist:0;stamp(a.x+dx*q,a.y+dy*q,WIDTH/2);}
+ }
+ function poly(v,close=true){for(let i=1;i<v.length;i++)line(v[i-1],v[i]);if(close&&v.length>2)line(v[v.length-1],v[0]);}
+ function ellipse(cx,cy,rx,ry){
+  if(Math.abs(rx-ry)/Math.max(rx,ry)<.15)rx=ry=(rx+ry)/2;
+  const count=Math.max(40,Math.ceil((rx+ry)/2));let prev={x:cx+rx,y:cy};
+  for(let i=1;i<=count;i++){const t=i/count*Math.PI*2,p={x:cx+Math.cos(t)*rx,y:cy+Math.sin(t)*ry};line(prev,p);prev=p;}
+ }
+ function arrow(A,T,k,n,L){
+  if(Math.abs(k)<L*.14)k=0;
+  const C={x:(A.x+T.x)/2+n.x*k,y:(A.y+T.y)/2+n.y*k},count=Math.max(12,Math.ceil(L/6));let prev=A;
+  for(let i=1;i<=count;i++){const t=i/count,q=1-t,p={x:q*q*A.x+2*q*t*C.x+t*t*T.x,y:q*q*A.y+2*q*t*C.y+t*t*T.y};line(prev,p);prev=p;}
+  const ang=Math.atan2(T.y-C.y,T.x-C.x),head=Math.min(Math.max(L*.2,14),40);
+  for(const side of [.45,-.45]){const a=ang+Math.PI+side;line(T,{x:T.x+Math.cos(a)*head,y:T.y+Math.sin(a)*head});}
+ }
+ function drawStroke(s){
+  const p=s.points;if(!p?.length)return;
+  const shape=s.shape;
+  if(shape?.type==="line")line(shape.a,shape.b);
+  else if(shape?.type==="arrow")arrow(shape.a,shape.b,shape.k,shape.n,shape.length);
+  else if(shape?.type==="rect"||shape?.type==="tri")poly(shape.points);
+  else if(shape?.type==="ellipse")ellipse(shape.cx,shape.cy,shape.rx,shape.ry);
+  else if(p.length===1)stamp(p[0].x,p[0].y,WIDTH/2);
+  else for(let i=1;i<p.length;i++)line(p[i-1],p[i]);
  }
  function redraw(){
-  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,canvas.width/dpr,canvas.height/dpr);
-  strokes.forEach(paintStroke);if(active)paintStroke(active);
+  ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(destroyed)return;ctx.setTransform(dpr,0,0,dpr,0,0);
+  for(const s of strokes)drawStroke(s);if(active)drawStroke(active);
+  ctx.setTransform(1,0,0,1,0,0);
  }
- function save(){if(!symbol)return;try{localStorage.setItem(key(),JSON.stringify(strokes))}catch(e){console.warn("[VEGAS V9 drawing] save failed",e)}}
+ function save(){if(!symbol)return;try{localStorage.setItem(key(),JSON.stringify(strokes));}catch(e){console.warn("[VEGAS V9 drawing] save failed",e);}}
+ function clearHold(){if(holdTimer!==null){clearTimeout(holdTimer);holdTimer=null;}}
+ function finishActive(){clearHold();if(active?.points?.length){strokes.push(active);save();}active=null;activeId=null;redraw();}
+ function resize(){
+  const rect=app.getBoundingClientRect(),nextDpr=Math.min(window.devicePixelRatio||1,2),w=Math.max(1,rect.width),h=Math.max(1,rect.height);
+  if(viewW!==w||viewH!==h){const sx=w/viewW,sy=h/viewH;const scalePoint=p=>({x:p.x*sx,y:p.y*sy});
+   const scaleShape=s=>{if(!s)return s;const z={...s};for(const k of ["a","b"])if(z[k])z[k]=scalePoint(z[k]);if(z.points)z.points=z.points.map(scalePoint);if(z.type==="ellipse"){z.cx*=sx;z.cy*=sy;z.rx*=sx;z.ry*=sy;}if(z.type==="arrow"){z.k*=Math.hypot(sx,sy)/Math.SQRT2;z.length*=Math.hypot(sx,sy)/Math.SQRT2;}return z;};
+   strokes=strokes.map(s=>({...s,points:s.points.map(scalePoint),shape:scaleShape(s.shape)}));
+   if(active)active={...active,points:active.points.map(scalePoint),shape:scaleShape(active.shape)};
+   viewW=w;viewH=h;save();
+  }
+  dpr=nextDpr;canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
+  canvas.style.width=w+"px";canvas.style.height=h+"px";brushKey="";redraw();
+ }
  function load(next){
-  symbol=validSymbol(next)?next:"";
-  try{const data=symbol?JSON.parse(localStorage.getItem(key())||"[]"):[];strokes=Array.isArray(data)?data.filter(s=>Array.isArray(s.points)&&s.points.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y))):[]}catch(_){strokes=[]}
-  active=null;redraw();
+  finishActive();symbol=validSymbol(next)?next:"";
+  try{const data=symbol?JSON.parse(localStorage.getItem(key())||"[]"):[];strokes=Array.isArray(data)?data.filter(s=>Array.isArray(s.points)&&s.points.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y))):[];}
+  catch(_){strokes=[];}
+  redraw();
  }
  function setEnabled(value){
   enabled=Boolean(value);bar.querySelector('[data-action="pen"]').setAttribute("aria-pressed",String(enabled));
-  canvas.style.pointerEvents=enabled?"auto":"none";
-  canvas.style.touchAction=enabled?"none":"auto";onModeChange(enabled);
+  canvas.style.pointerEvents=enabled?"auto":"none";canvas.style.touchAction=enabled?"none":"auto";onModeChange(enabled);
  }
- function point(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+ const point=e=>{const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};};
+ function armRecognition(){clearHold();holdTimer=setTimeout(()=>{holdTimer=null;recognize();},HOLD_MS);}
+ function recognizeOpen(){
+  const p=active.points,A=p[0],E=p[p.length-1];let ti=0,L=0;
+  p.forEach((q,i)=>{const d=Math.hypot(q.x-A.x,q.y-A.y);if(d>L){L=d;ti=i;}});
+  if(L<30)return;const T=p[ti],dx=(T.x-A.x)/L,dy=(T.y-A.y)/L,n={x:-dy,y:dx};
+  let sb=0,sbb=0;const seg=p.slice(0,ti+1).map(q=>{const u=Math.max(0,Math.min(1,((q.x-A.x)*dx+(q.y-A.y)*dy)/L));return{b:2*u*(1-u),v:(q.x-A.x)*n.x+(q.y-A.y)*n.y};});
+  for(const q of seg){sb+=q.b*q.v;sbb+=q.b*q.b;}const k=sbb?sb/sbb:0,dev=Math.abs(k)/2;
+  const residual=seg.reduce((m,q)=>m+Math.abs(q.v-q.b*k),0)/seg.length;
+  if(residual>L*.1||dev>L*.4)return;
+  const back=Math.hypot(E.x-T.x,E.y-T.y),isArrow=back>L*.08&&back<L*.6;
+  if(!isArrow&&dev>L*.1)return;
+  active.shape=isArrow?{type:"arrow",a:A,b:T,k,n,length:L}:{type:"line",a:A,b:T};
+  active.locked=true;redraw();
+ }
+ function hull(points){
+  const p=points.map(q=>({x:q.x,y:q.y})).sort((a,b)=>a.x-b.x||a.y-b.y);
+  const cross=(o,a,b)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x),lo=[],up=[];
+  for(const q of p){while(lo.length>1&&cross(lo.at(-2),lo.at(-1),q)<=0)lo.pop();lo.push(q);}
+  for(let i=p.length-1;i>=0;i--){const q=p[i];while(up.length>1&&cross(up.at(-2),up.at(-1),q)<=0)up.pop();up.push(q);}
+  return lo.slice(0,-1).concat(up.slice(0,-1));
+ }
+ function polygonArea(p){let a=0;for(let i=0;i<p.length;i++){const q=p[i],r=p[(i+1)%p.length];a+=q.x*r.y-r.x*q.y;}return Math.abs(a)/2;}
+ function rectAt(h,t){
+  const c=Math.cos(t),s=Math.sin(t);let u0=Infinity,u1=-Infinity,v0=Infinity,v1=-Infinity;
+  for(const p of h){const u=p.x*c+p.y*s,v=-p.x*s+p.y*c;u0=Math.min(u0,u);u1=Math.max(u1,u);v0=Math.min(v0,v);v1=Math.max(v1,v);}
+  const f=(u,v)=>({x:u*c-v*s,y:u*s+v*c});
+  return{area:(u1-u0)*(v1-v0),points:[f(u0,v0),f(u1,v0),f(u1,v1),f(u0,v1)]};
+ }
+ function rdp(p,eps){
+  if(p.length<3)return p;const a=p[0],b=p.at(-1),L=Math.hypot(b.x-a.x,b.y-a.y)||1;let max=0,mi=0;
+  for(let i=1;i<p.length-1;i++){const d=Math.abs((b.x-a.x)*(a.y-p[i].y)-(a.x-p[i].x)*(b.y-a.y))/L;if(d>max){max=d;mi=i;}}
+  if(max<=eps)return[a,b];return rdp(p.slice(0,mi+1),eps).slice(0,-1).concat(rdp(p.slice(mi),eps));
+ }
+ function triangleCandidate(points,diag){
+  for(const e of [.08,.11,.15,.2]){
+   const v=rdp(points.concat([points[0]]),diag*e);if(v.length===4)return v.slice(0,3);
+  }return null;
+ }
+ function recognizeClosed(){
+  const p=active.points;if(p.length<5)return;
+  const xs=p.map(q=>q.x),ys=p.map(q=>q.y),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+  const w=x1-x0,h=y1-y0,diag=Math.hypot(w,h);if(Math.min(w,h)<25)return;
+  const hullPoints=hull(p),hArea=polygonArea(hullPoints);let best=null,bestAngle=0;
+  for(let d=0;d<90;d++){const r=rectAt(hullPoints,d*Math.PI/180);if(!best||r.area<best.area){best=r;bestAngle=d;}}
+  if(!best?.area)return;const ratio=hArea/best.area,cx=(x0+x1)/2,cy=(y0+y1)/2,rx=w/2,ry=h/2;
+  const err=p.reduce((sum,q)=>sum+Math.abs(Math.hypot((q.x-cx)/rx,(q.y-cy)/ry)-1),0)/p.length;
+  let shape=null;
+  if(ratio>=.86){shape={type:"rect",points:(bestAngle<=7||bestAngle>=83)?rectAt(hullPoints,0).points:best.points};}
+  else if(ratio>=.68&&err<.25)shape={type:"ellipse",cx,cy,rx,ry};
+  else if(ratio<.8){const tri=triangleCandidate(p,diag);if(tri)shape={type:"tri",points:tri};}
+  if(shape){active.shape=shape;active.locked=true;redraw();}
+ }
+ function recognize(){
+  if(!active||active.points.length<5)return;
+  const p=active.points,A=p[0],E=p.at(-1),xs=p.map(q=>q.x),ys=p.map(q=>q.y),w=Math.max(...xs)-Math.min(...xs),h=Math.max(...ys)-Math.min(...ys),diag=Math.hypot(w,h);
+  const closed=Math.hypot(A.x-E.x,A.y-E.y)<diag*.35&&Math.min(w,h)>25;
+  if(closed)recognizeClosed();else recognizeOpen();
+ }
  function down(e){
-  if(!enabled||!symbol||activePointerId!==null)return;
-  const y=e.clientY, h=window.innerHeight;
-  if(y<Math.min(72,h*.11)||y>h-Math.min(110,h*.18))return;
-  e.preventDefault();activePointerId=e.pointerId;canvas.setPointerCapture(e.pointerId);active={points:[point(e)]};redraw();
+  if(!enabled||!symbol||activeId!==null)return;
+  const y=e.clientY,h=window.innerHeight;if(y<Math.min(72,h*.11)||y>h-Math.min(110,h*.18))return;
+  e.preventDefault();activeId=e.pointerId;try{canvas.setPointerCapture(e.pointerId);}catch(_){}
+  active={points:[point(e)],shape:null,locked:false};redraw();
  }
- function move(e){if(!active||!enabled||e.pointerId!==activePointerId)return;e.preventDefault();const p=point(e),last=active.points.at(-1);if(Math.hypot(p.x-last.x,p.y-last.y)<1)return;active.points.push(p);redraw()}
+ function move(e){
+  if(!active||!enabled||e.pointerId!==activeId)return;e.preventDefault();
+  const events=e.getCoalescedEvents?.()||[e];
+  for(const ev of events){
+   const p=point(ev),last=active.points.at(-1);if(Math.hypot(p.x-last.x,p.y-last.y)<1.5)continue;
+   if(active.locked&&active.shape?.type==="line"){
+    const s=active.shape,dx=p.x-s.b.x,dy=p.y-s.b.y,back=Math.hypot(dx,dy),along=-(dx*Math.cos(Math.atan2(s.b.y-s.a.y,s.b.x-s.a.x))+dy*Math.sin(Math.atan2(s.b.y-s.a.y,s.b.x-s.a.x)));
+    if(along>s.length*.08&&back<s.length*.6){clearHold();holdTimer=setTimeout(()=>{holdTimer=null;if(active&&active.shape?.type==="line"){active.shape={type:"arrow",a:s.a,b:s.b,k:0,n:{x:-(s.b.y-s.a.y)/s.length,y:(s.b.x-s.a.x)/s.length},length:s.length};redraw();}},HOLD_MS);}
+    continue;
+   }
+   if(active.locked)continue;
+   active.points.push(p);armRecognition();
+  }
+  redraw();
+ }
  function up(e){
-  if(e.pointerId!==activePointerId)return;
-  try{if(canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId)}catch(_){}
-  if(active&&active.points.length)strokes.push(active);
-  active=null;activePointerId=null;save();redraw();
+  if(e.pointerId!==activeId)return;
+  try{if(canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId);}catch(_){}
+  finishActive();
  }
  bar.addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;
   if(b.dataset.action==="pen")setEnabled(!enabled);
-  if(b.dataset.action==="clear"){strokes=[];active=null;save();redraw()}
+  if(b.dataset.action==="clear"){clearHold();active=null;activeId=null;strokes=[];save();redraw();}
  });
- canvas.addEventListener("pointerdown",down);canvas.addEventListener("pointermove",move);canvas.addEventListener("pointerup",up);canvas.addEventListener("pointercancel",up);
+ canvas.addEventListener("pointerdown",down);canvas.addEventListener("pointermove",move);
+ canvas.addEventListener("pointerup",up);canvas.addEventListener("pointercancel",up);
+ canvas.addEventListener("contextmenu",e=>e.preventDefault());
+ const preventGesture=e=>e.preventDefault();document.addEventListener("gesturestart",preventGesture);document.addEventListener("gesturechange",preventGesture);
  const observer=new ResizeObserver(resize);observer.observe(app);resize();
- function refreshLayout(){if(destroyed)return;resize();bar.getBoundingClientRect()}
- function destroy(){if(destroyed)return;destroyed=true;save();observer.disconnect();canvas.remove();bar.remove()}
- return Object.freeze({setSymbol:load,refreshLayout,destroy,get enabled(){return enabled}});
+ function refreshLayout(){if(!destroyed){resize();bar.getBoundingClientRect();}}
+ function destroy(){
+  if(destroyed)return;destroyed=true;clearHold();if(active?.points?.length){strokes.push(active);save();}
+  active=null;activeId=null;observer.disconnect();document.removeEventListener("gesturestart",preventGesture);document.removeEventListener("gesturechange",preventGesture);
+  canvas.removeEventListener("pointerdown",down);canvas.removeEventListener("pointermove",move);canvas.removeEventListener("pointerup",up);canvas.removeEventListener("pointercancel",up);
+  canvas.remove();bar.remove();onModeChange(false);
+ }
+ return Object.freeze({setSymbol:load,refreshLayout,destroy,get enabled(){return enabled;}});
 }
