@@ -81,7 +81,7 @@ export function mountV9DrawingTools({app,onModeChange=()=>{}}){
  }
  function redraw(){
   ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);
-  if(destroyed)return;ctx.setTransform(dpr,0,0,dpr,0,0);
+  if(destroyed)return;
   for(const s of strokes)drawStroke(s);if(active)drawStroke(active);
   ctx.setTransform(1,0,0,1,0,0);
  }
