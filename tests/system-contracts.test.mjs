@@ -131,9 +131,9 @@ test("operating-flow documentation matches the current catalog and card interfac
 test("drawing hit areas resync after stable orientation and page resume", async () => {
   const runtime = await source("modules/v9-runtime.js");
   const full = await source("assets/css/full-screen-dynamic.css");
-  assert.match(runtime, /drawingLayoutRefreshSecond=lifecycle\\.animationFrame/);
-  assert.match(runtime, /screen\\?\\.orientation/);
-  assert.match(runtime, /function resumeRuntime\\(\\)[\\s\\S]*?refreshDrawingLayout\\(\\)/);
+  assert.match(runtime, /drawingLayoutRefreshSecond=lifecycle\.animationFrame/);
+  assert.match(runtime, /screen\?\.orientation/);
+  assert.match(runtime, /function resumeRuntime\(\)[\s\S]*?refreshDrawingLayout\(\)/);
   assert.match(full, /#v9-drawing-tools button[^}]*min-height:44px/);
 });
 
