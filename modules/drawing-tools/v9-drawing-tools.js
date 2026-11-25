@@ -7,7 +7,7 @@ export function mountV9DrawingTools({app,onModeChange=()=>{}}){
  bar.innerHTML='<button type="button" data-action="pen" aria-pressed="false" aria-label="画笔">✏️</button><button type="button" data-action="clear" aria-label="清空">🗑︎</button>';
  app.append(canvas,bar);
 
- let symbol="",enabled=false,dpr=1,strokes=[],active=null,activeId=null,destroyed=false,holdTimer=null;
+ let symbol="",enabled=false,dpr=Math.min(window.devicePixelRatio||1,2),strokes=[],active=null,activeId=null,destroyed=false,holdTimer=null;
  let viewW=1,viewH=1;
  const WIDTH=9,HOLD_MS=450,COLOR=[252,245,85];
  const key=()=> "vegas-v9-drawings:"+encodeURIComponent(symbol);
@@ -15,31 +15,44 @@ export function mountV9DrawingTools({app,onModeChange=()=>{}}){
  const brushCanvas=document.createElement("canvas"),brushCtx=brushCanvas.getContext("2d");
  const tileCanvas=document.createElement("canvas");
  let tilePattern=null,brushKey="",brushGradient=null,brushRadius=0,brushSize=0;
+ const S=()=>dpr/3;
+ function gauss(src,N,sig){
+  const R=Math.ceil(sig*3),k=[];let sum=0;
+  for(let i=-R;i<=R;i++){const v=Math.exp(-i*i/(2*sig*sig));k.push(v);sum+=v;}
+  const tmp=new Float32Array(N*N),out=new Float32Array(N*N);
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){let a=0;for(let i=-R;i<=R;i++)a+=src[y*N+(x+i+N)%N]*k[i+R];tmp[y*N+x]=a/sum;}
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){let a=0;for(let i=-R;i<=R;i++)a+=tmp[((y+i+N)%N)*N+x]*k[i+R];out[y*N+x]=a/sum;}
+  return out;
+ }
+ function norm(a){
+  let m=0,v=0;a.forEach(x=>m+=x);m/=a.length;
+  a.forEach(x=>v+=(x-m)*(x-m));v=Math.sqrt(v/a.length);
+  return a.map(x=>(x-m)/v);
+ }
  function makeTile(){
-  const n=160,size=n*n,raw=new Float32Array(size),smooth=new Float32Array(size);
-  for(let i=0;i<size;i++)raw[i]=Math.random();
-  for(let y=0;y<n;y++)for(let x=0;x<n;x++){
-   let v=0,c=0;
-   for(let oy=-2;oy<=2;oy++)for(let ox=-2;ox<=2;ox++){const xx=(x+ox+n)%n,yy=(y+oy+n)%n,w=(ox===0?3:1)*(oy===0?3:1);v+=raw[yy*n+xx]*w;c+=w;}
-   smooth[y*n+x]=v/c;
-  }
-  let mean=0;for(const v of smooth)mean+=v;mean/=size;
-  let variance=0;for(const v of smooth)variance+=(v-mean)**2;const sd=Math.sqrt(variance/size)||1;
-  const pixels=new Uint8ClampedArray(size*4);
-  for(let i=0;i<size;i++){
-   const b=Math.max(.32,Math.min(1,.87+(smooth[i]-mean)/sd*.075));
-   pixels[i*4]=COLOR[0]*b;pixels[i*4+1]=COLOR[1]*b;pixels[i*4+2]=COLOR[2]*Math.pow(b,1.3);pixels[i*4+3]=255;
-  }
-  tileCanvas.width=tileCanvas.height=n;tileCanvas.getContext("2d").putImageData(new ImageData(pixels,n,n),0,0);
-  tilePattern=brushCtx.createPattern(tileCanvas,"repeat");
+  const N=320,rnd=()=>Float32Array.from({length:N*N},Math.random);
+  const fine=norm(gauss(rnd(),N,1.3*S())),coarse=norm(gauss(rnd(),N,4*S()));
+  const noise=fine.map((x,i)=>x+coarse[i]),idx=Array.from(noise.keys()).sort((a,b)=>noise[a]-noise[b]);
+  const curve=[[0,.28],[.02,.43],[.05,.52],[.10,.61],[.25,.75],[.5,.88],[.75,.956],[.9,.988],[1,1]];
+  const brightness=new Float32Array(N*N);
+  idx.forEach((id,r)=>{
+   const q=r/(N*N-1);let j=1;while(curve[j][0]<q)j++;
+   const [q0,b0]=curve[j-1],[q1,b1]=curve[j];
+   brightness[id]=b0+(b1-b0)*(q-q0)/(q1-q0);
+  });
+  tileCanvas.width=tileCanvas.height=N;
+  const g=tileCanvas.getContext("2d"),im=g.createImageData(N,N);
+  for(let i=0;i<N*N;i++){const b=brightness[i];im.data[i*4]=252*b;im.data[i*4+1]=245*b;im.data[i*4+2]=85*Math.pow(b,1.3);im.data[i*4+3]=255;}
+  g.putImageData(im,0,0);tilePattern=brushCtx.createPattern(tileCanvas,"repeat");
  }
  makeTile();
  function prepareBrush(r){
   const k=r+"_"+dpr;if(k===brushKey)return;brushKey=k;
-  brushRadius=r+2*dpr/3;brushSize=Math.ceil(brushRadius*2)+6;
+  brushRadius=r+2*S();brushSize=Math.ceil(2*brushRadius)+6;
   brushCanvas.width=brushCanvas.height=brushSize;
   brushGradient=brushCtx.createRadialGradient(0,0,0,0,0,brushRadius);
-  [[0,1],[.48,.98],[.68,.82],[.82,.48],[.93,.16],[1,0]].forEach(([p,a])=>brushGradient.addColorStop(p,"rgba(0,0,0,"+a+")"));
+  [[11,1],[9,.95],[7,.88],[5,.74],[3,.45],[2,.2],[1,.05],[0,0]].forEach(([q,a])=>
+   brushGradient.addColorStop(Math.max(0,1-q*S()/brushRadius),"rgba(0,0,0,"+a+")"));
  }
  function stamp(x,y,r){
   x*=dpr;y*=dpr;r*=dpr;prepareBrush(r);
