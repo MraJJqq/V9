@@ -100,7 +100,7 @@ export function mountV9DrawingTools({app,onModeChange=()=>{}}){
   canvas.style.width=w+"px";canvas.style.height=h+"px";brushKey="";redraw();
  }
  function load(next){
-  finishActive();symbol=validSymbol(next)?next:"";
+  clearHold();active=null;symbol=validSymbol(next)?next:"";
   try{const data=symbol?JSON.parse(localStorage.getItem(key())||"[]"):[];strokes=Array.isArray(data)?data.filter(s=>Array.isArray(s.points)&&s.points.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y))):[];}
   catch(_){strokes=[];}
   redraw();
@@ -196,7 +196,7 @@ export function mountV9DrawingTools({app,onModeChange=()=>{}}){
  bar.addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;
   if(b.dataset.action==="pen")setEnabled(!enabled);
-  if(b.dataset.action==="clear"){clearHold();active=null;activeId=null;strokes=[];save();redraw();}
+  if(b.dataset.action==="clear"){clearHold();active=null;strokes=[];save();redraw();}
  });
  canvas.addEventListener("pointerdown",down);canvas.addEventListener("pointermove",move);
  canvas.addEventListener("pointerup",up);canvas.addEventListener("pointercancel",up);
