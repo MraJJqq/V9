@@ -109,7 +109,7 @@ export function mountV9DrawingTools({app,onModeChange=()=>{}}){
    if(active)active={...active,points:active.points.map(scalePoint),shape:scaleShape(active.shape)};
    viewW=w;viewH=h;save();
   }
-  dpr=nextDpr;canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
+  if(dpr!==nextDpr){dpr=nextDpr;makeTile();brushKey="";}canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
   canvas.style.width=w+"px";canvas.style.height=h+"px";brushKey="";redraw();
  }
  function load(next){
