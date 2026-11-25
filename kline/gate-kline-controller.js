@@ -20,6 +20,27 @@ export function twoHourRangeWindows(from,to,pageSize=PAGE){
 }
 // UTC+8 midnight is 16:00 UTC; align daily candle timestamps to that epoch offset.
 const timeframeOffsetSeconds=tf=>tf==="D"?16*3600:0;
+export function isValidCandle(row,tf){
+ const step=MS[tf]/1000,offset=timeframeOffsetSeconds(tf);
+ if(!step||!row||!Number.isSafeInteger(row.t)||row.t<=0||(row.t-offset)%step!==0)return false;
+ const {o,h,l,c}=row;
+ return [o,h,l,c].every(value=>Number.isFinite(value)&&value>0)&&h>=Math.max(o,c)&&l<=Math.min(o,c)&&h>=l;
+}
+export function findMissingRangeTimestamps(rows,tf,from,to,sampleLimit=10){
+ const step=MS[tf]/1000,offset=timeframeOffsetSeconds(tf);
+ if(!step||!Number.isSafeInteger(from)||!Number.isSafeInteger(to)||to<from)throw new TypeError("Invalid candle verification range");
+ const present=new Set((Array.isArray(rows)?rows:[]).filter(row=>isValidCandle(row,tf)).map(row=>row.t));
+ const first=Math.ceil((from-offset)/step)*step+offset;
+ let missingCount=0;const samples=[];
+ for(let timestamp=first;timestamp<=to;timestamp+=step){
+  if(!present.has(timestamp)){missingCount++;if(samples.length<sampleLimit)samples.push(timestamp)}
+ }
+ return {missingCount,samples};
+}
+function assertRangeCoverage(rows,tf,from,to){
+ const result=findMissingRangeTimestamps(rows,tf,from,to);
+ if(result.missingCount)throw new Error("Gate range incomplete: "+result.missingCount+" candle(s) missing; first="+result.samples[0]);
+}
 export function findCandleGaps(rows,tf){
  const step=MS[tf]/1000,offset=timeframeOffsetSeconds(tf);if(!step||!Array.isArray(rows))throw new TypeError("Unsupported timeframe or candle rows");
  const gaps=[];for(let i=1;i<rows.length;i++){const previous=rows[i-1].t,current=rows[i].t,delta=current-previous,misaligned=(previous-offset)%step!==0||(current-offset)%step!==0||delta%step!==0;if(delta>step||misaligned)gaps.push({from:previous+step,to:current-step,missingCount:Math.max(0,Math.floor(delta/step)-1),misaligned})}return gaps;
@@ -31,7 +52,7 @@ export function expectedLatestCandleTimestamp(tf,now=Date.now(),graceMs=120000){
 }
 export function hasLatestCoverage(rows,tf,now=Date.now(),graceMs=120000){
  const stepMs=MS[tf];if(!stepMs||!Array.isArray(rows)||!rows.length)return false;
- const step=stepMs/1000;if(rows.some(row=>!Number.isFinite(row.t)||(row.t-timeframeOffsetSeconds(tf))%step!==0)||findCandleGaps(rows,tf).length)return false;
+ if(rows.some(row=>!isValidCandle(row,tf))||findCandleGaps(rows,tf).length)return false;
  return rows[rows.length-1].t>=expectedLatestCandleTimestamp(tf,now,graceMs);
 }
 export function historyRetryDelay(attempt){return Math.min(300000,30000*2**Math.min(Math.max(0,Number(attempt)||0),4));}
@@ -45,7 +66,16 @@ export function buildPatrolPlan(instruments=[],activeSymbol="",activeTimeframe="
   return {symbol:item.symbol,contract,timeframe:tf,key:keyOf(contract,tf)};
  }));
 }
-const normalize=rows=>(Array.isArray(rows)?rows:[]).map(r=>({t:Number(r.t??r[0]),o:Number(r.o??r[5]??r[1]),h:Number(r.h??r[3]??r[2]),l:Number(r.l??r[4]??r[3]),c:Number(r.c??r[2]??r[4])})).filter(x=>Number.isFinite(x.t)&&x.t>0&&[x.o,x.h,x.l,x.c].every(v=>Number.isFinite(v)&&v>0)&&x.h>=Math.max(x.o,x.c)&&x.l<=Math.min(x.o,x.c)&&x.h>=x.l);
+const normalize=(rows,tf="1H")=>{
+ const unique=new Map();
+ for(const r of Array.isArray(rows)?rows:[]){
+  const x={t:Number(r.t??r[0]),o:Number(r.o??r[5]??r[1]),h:Number(r.h??r[3]??r[2]),l:Number(r.l??r[4]??r[3]),c:Number(r.c??r[2]??r[4])};
+  const rawVolume=r.v??(Array.isArray(r)?r[1]:undefined);
+  if(rawVolume!==undefined&&(!Number.isFinite(Number(rawVolume))||Number(rawVolume)<0))continue;
+  if(isValidCandle(x,tf))unique.set(x.t,x);
+ }
+ return [...unique.values()].sort((a,b)=>a.t-b.t);
+};
 const merge=(...groups)=>{const m=new Map();for(const g of groups)for(const c of g||[])m.set(c.t,c);return [...m.values()].sort((a,b)=>a.t-b.t)};
 export function mergePendingWriteRows(previous,next){return {rows:merge(previous?.rows,next.rows),done:previous?previous.done===true&&next.done===true:next.done===true,status:next.status||previous?.status||"ok",error:next.error??previous?.error??null}};
 export function aggregate2H(rows,now=Date.now()){
@@ -213,7 +243,7 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
    const legacyStore=tx.objectStore(LEGACY_STORE),rowsStore=tx.objectStore(STORE),metaStore=tx.objectStore(META_STORE),legacyReq=legacyStore.get(key),rowsReq=rowsStore.index("series").getAll(key),metaReq=metaStore.get(key);
    let legacy=null,rows=[],meta=null,ready=0,result=null;
    const finish=()=>{if(++ready!==3)return;const oldRows=legacy?.candles||[];if(legacy){for(const c of oldRows)rowsStore.put({id:key+"|"+c.t,series:key,...c});legacyStore.delete(key);const {candles:discardedLegacyArray,...legacyMeta}=legacy;metaStore.put({...legacyMeta,id:key,schemaVersion:3,candleCount:oldRows.length,cacheMode:"indexeddb"})}
-    const normalized=rows.map(({id,series,...c})=>c),volatile=memoryCache.get(key);result={...(meta||legacy||{historyBoundaryReached:false,latestGapStatus:"pending"}),candles:merge(normalized,oldRows,volatile?.candles),historyBoundaryReached:meta?.historyBoundaryReached===true||legacy?.historyBoundaryReached===true||volatile?.historyBoundaryReached===true,latestGapStatus:volatile?.latestGapStatus||meta?.latestGapStatus||legacy?.latestGapStatus||"pending",cacheMode:"indexeddb"};if(legacy){memoryCache.delete(key);memoryCacheIncomplete.delete(key)}};
+    const tf=key.slice(key.lastIndexOf(":")+1),normalized=normalize(rows.map(({id,series,...c})=>c),tf),cleanLegacy=normalize(oldRows,tf),volatile=memoryCache.get(key);result={...(meta||legacy||{historyBoundaryReached:false,latestGapStatus:"pending"}),candles:merge(normalized,cleanLegacy,normalize(volatile?.candles||[],tf)),historyBoundaryReached:meta?.historyBoundaryReached===true||legacy?.historyBoundaryReached===true||volatile?.historyBoundaryReached===true,latestGapStatus:volatile?.latestGapStatus||meta?.latestGapStatus||legacy?.latestGapStatus||"pending",cacheMode:"indexeddb"};if(legacy){memoryCache.delete(key);memoryCacheIncomplete.delete(key)}};
    legacyReq.onsuccess=()=>{legacy=legacyReq.result||null;finish()};rowsReq.onsuccess=()=>{rows=rowsReq.result||[];finish()};metaReq.onsuccess=()=>{meta=metaReq.result||null;finish()};
    legacyReq.onerror=rowsReq.onerror=metaReq.onerror=()=>{try{tx.abort()}catch(_){}};tx.oncomplete=()=>resolve(result||{candles:[],historyBoundaryReached:false,latestGapStatus:"pending"});tx.onerror=tx.onabort=()=>reject(tx.error||new Error("IndexedDB cache read/migration failed"))
   }).catch(error=>{
@@ -261,7 +291,7 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
   historyRetryTimer=setTimeout(()=>{historyRetryTimer=0;startHistoryQueue(true)},delay);
  }
  async function write(key,rows,done,status="ok",error=null){
-  const volatile=memoryCache.get(key);rows=merge(volatile?.candles,rows);if(memoryCacheIncomplete.has(key))done=false;
+  const tf=key.slice(key.lastIndexOf(":")+1),volatile=memoryCache.get(key);rows=merge(normalize(volatile?.candles||[],tf),normalize(rows,tf));if(memoryCacheIncomplete.has(key))done=false;
   const db=await getDB();if(!db){putMemory(key,volatile||{},rows,done,status,error);if(!cacheRetryTimer)cacheRetryTimer=setTimeout(()=>{cacheRetryTimer=0;startHistoryQueue(true)},15000);onState({status:"cache-write-failed",key,mode:"memory-fallback",error:"IndexedDB unavailable; kept latest rows in memory"});return}
   try{await new Promise((resolve,reject)=>{let tx;try{tx=db.transaction([LEGACY_STORE,STORE,META_STORE],"readwrite")}catch(e){reject(e);return}
    const legacyStore=tx.objectStore(LEGACY_STORE),rowsStore=tx.objectStore(STORE),metaStore=tx.objectStore(META_STORE),legacyReq=legacyStore.get(key),metaReq=metaStore.get(key);let lr=false,mr=false,failed=false,applied=false;
@@ -313,7 +343,31 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
  }
  async function latest(c,n,tf){if(tf==="2H"){const count=Math.min(2000,Math.max(4,n*2+2)),u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval=1h&limit="+count;return aggregate2H(await request(u,"1H"))}const timezone=tf==="D"?"&timezone=utc8":"";const u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval="+INTERVALS[tf]+"&limit="+n+timezone;return merge(await request(u,tf))}
  async function older(c,tf,oldest){if(tf==="2H"){const step=3600,from=Math.max(0,oldest-PAGE*step),to=Math.max(0,oldest-1);if(to<=from)return [];const u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval=1h&from="+from+"&to="+to;return aggregate2H(await request(u,"1H"))}const step=MS[tf]/1000,from=Math.max(0,oldest-PAGE*step),to=Math.max(0,oldest-1),timezone=tf==="D"?"&timezone=utc8":"";if(to<=from)return [];const u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval="+INTERVALS[tf]+"&from="+from+"&to="+to+timezone;return merge(await request(u,tf))}
- async function range(c,tf,from,to){if(tf==="2H"){let rows=[];for(const window of twoHourRangeWindows(from,to)){if(!canWork())break;const u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval=1h&from="+window.from+"&to="+window.to,part=await request(u,"1H");if(!canWork())break;if(!part.length)throw new Error("Gate history gap could not be filled");rows=merge(rows,aggregate2H(part))}return rows}const step=MS[tf]/1000;let cursor=Math.max(0,from),rows=[];while(cursor<=to&&canWork()){const end=Math.min(to,cursor+(PAGE-1)*step),timezone=tf==="D"?"&timezone=utc8":"",u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval="+INTERVALS[tf]+"&from="+cursor+"&to="+end+timezone,part=await request(u,tf);if(!canWork())break;if(!part.length)throw new Error("Gate history gap could not be filled");rows=merge(rows,part);const next=part[part.length-1].t+step;if(next<=cursor)throw new Error("Gate gap repair pagination stalled");cursor=next}return rows}
+ async function range(c,tf,from,to){
+  let rows=[];
+  if(tf==="2H"){
+   for(const window of twoHourRangeWindows(from,to)){
+    if(!canWork())return rows;
+    const u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval=1h&from="+window.from+"&to="+window.to,part=await request(u,"1H");
+    if(!canWork())return rows;
+    if(!part.length)throw new Error("Gate history gap could not be filled");
+    rows=merge(rows,aggregate2H(part));
+   }
+  }else{
+   const step=MS[tf]/1000;let cursor=Math.max(0,from);
+   while(cursor<=to&&canWork()){
+    const end=Math.min(to,cursor+(PAGE-1)*step),timezone=tf==="D"?"&timezone=utc8":"",u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval="+INTERVALS[tf]+"&from="+cursor+"&to="+end+timezone,part=await request(u,tf);
+    if(!canWork())return rows;
+    if(!part.length)throw new Error("Gate history gap could not be filled");
+    rows=merge(rows,part);
+    const next=part[part.length-1].t+step;
+    if(next<=cursor)throw new Error("Gate gap repair pagination stalled");
+    cursor=next;
+   }
+  }
+  if(canWork())assertRangeCoverage(rows,tf,from,to);
+  return rows;
+ }
  function isActive(c,tf){return !stopped&&c===contract&&tf===timeframe}
  function render(rows,token=selection,tf=timeframe,emaValues=null,deferEma=false){if(stopped||token!==selection||tf!==timeframe)return;const w=frame?.contentWindow;if(!w)return;w.setCandles?.(rows);if(emaValues)w.setVegasEmaCandles?.(rows,emaValues);else if(deferEma)w.setVegasEmaCandles?.([],{});else w.setVegasEmaCandles?.(rows);w.setHistoryStatus?.(symbol,rows.length,complete,complete?"ready":"loading","",tf)}
  async function repairGaps(c,tf,source){
@@ -343,6 +397,23 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
     if(isActive(c,tf)){candles=rows;complete=false;render(candles,selection,tf)}
    }
   }
+  // Re-scan the complete merged series after tail repair; newly appended rows can expose an earlier gap.
+  let finalGuard=0;
+  while(canWork()&&finalGuard++<10000){
+   const gap=findCandleGaps(rows,tf)[0];
+   if(!gap)break;
+   if(gap.misaligned||gap.missingCount<1)throw new Error("Gate history contains misaligned candle timestamps");
+   const added=await range(c,tf,gap.from,gap.to);
+   if(!canWork())return rows;
+   const next=merge(rows,added);
+   if(next.length===rows.length)throw new Error("Gate history gap remains unresolved");
+   rows=next;await write(key,added,false);
+   if(dbRetryAt>Date.now())return rows;
+  }
+  if(finalGuard>=10000)throw new Error("Gate final continuity verification limit reached");
+  if(!canWork())return rows;
+  if(rows.some(row=>!isValidCandle(row,tf))||findCandleGaps(rows,tf).length)throw new Error("Gate final candle continuity verification failed");
+  if(!hasLatestCoverage(rows,tf))throw new Error("Gate latest candle coverage is stale or incomplete");
   return rows
  }
  function sendSubscription(event,sub){if(!ws||ws.readyState!==WebSocket.OPEN||!sub)return;ws.send(JSON.stringify({time:Math.floor(Date.now()/1000),channel:"futures.candlesticks",event,payload:[INTERVALS[sub.timeframe],sub.contract]}))}
