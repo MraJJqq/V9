@@ -69,6 +69,7 @@ export function buildPatrolPlan(instruments=[],activeSymbol="",activeTimeframe="
 const normalize=(rows,tf="1H")=>{
  const unique=new Map();
  for(const r of Array.isArray(rows)?rows:[]){
+  if(!r)continue;
   const x={t:Number(r.t??r[0]),o:Number(r.o??r[5]??r[1]),h:Number(r.h??r[3]??r[2]),l:Number(r.l??r[4]??r[3]),c:Number(r.c??r[2]??r[4])};
   const rawVolume=r.v??(Array.isArray(r)?r[1]:undefined);
   if(rawVolume!==undefined&&(!Number.isFinite(Number(rawVolume))||Number(rawVolume)<0))continue;
@@ -242,8 +243,8 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
   return new Promise((resolve,reject)=>{let tx;try{tx=db.transaction([LEGACY_STORE,STORE,META_STORE],"readwrite")}catch(e){reject(e);return}
    const legacyStore=tx.objectStore(LEGACY_STORE),rowsStore=tx.objectStore(STORE),metaStore=tx.objectStore(META_STORE),legacyReq=legacyStore.get(key),rowsReq=rowsStore.index("series").getAll(key),metaReq=metaStore.get(key);
    let legacy=null,rows=[],meta=null,ready=0,result=null;
-   const finish=()=>{if(++ready!==3)return;const oldRows=legacy?.candles||[];if(legacy){for(const c of oldRows)rowsStore.put({id:key+"|"+c.t,series:key,...c});legacyStore.delete(key);const {candles:discardedLegacyArray,...legacyMeta}=legacy;metaStore.put({...legacyMeta,id:key,schemaVersion:3,candleCount:oldRows.length,cacheMode:"indexeddb"})}
-    const tf=key.slice(key.lastIndexOf(":")+1),normalized=normalize(rows.map(({id,series,...c})=>c),tf),cleanLegacy=normalize(oldRows,tf),volatile=memoryCache.get(key);result={...(meta||legacy||{historyBoundaryReached:false,latestGapStatus:"pending"}),candles:merge(normalized,cleanLegacy,normalize(volatile?.candles||[],tf)),historyBoundaryReached:meta?.historyBoundaryReached===true||legacy?.historyBoundaryReached===true||volatile?.historyBoundaryReached===true,latestGapStatus:volatile?.latestGapStatus||meta?.latestGapStatus||legacy?.latestGapStatus||"pending",cacheMode:"indexeddb"};if(legacy){memoryCache.delete(key);memoryCacheIncomplete.delete(key)}};
+   const finish=()=>{if(++ready!==3)return;const tf=key.slice(key.lastIndexOf(":")+1),oldRows=normalize(legacy?.candles||[],tf);if(legacy){for(const c of oldRows)rowsStore.put({id:key+"|"+c.t,series:key,...c});legacyStore.delete(key);const {candles:discardedLegacyArray,...legacyMeta}=legacy;metaStore.put({...legacyMeta,id:key,schemaVersion:3,candleCount:oldRows.length,oldestTimestamp:oldRows[0]?.t??null,newestTimestamp:oldRows.at(-1)?.t??null,cacheMode:"indexeddb"})}
+    const normalized=normalize(rows.map(({id,series,...c})=>c),tf),cleanLegacy=oldRows,volatile=memoryCache.get(key);result={...(meta||legacy||{historyBoundaryReached:false,latestGapStatus:"pending"}),candles:merge(normalized,cleanLegacy,normalize(volatile?.candles||[],tf)),historyBoundaryReached:meta?.historyBoundaryReached===true||legacy?.historyBoundaryReached===true||volatile?.historyBoundaryReached===true,latestGapStatus:volatile?.latestGapStatus||meta?.latestGapStatus||legacy?.latestGapStatus||"pending",cacheMode:"indexeddb"};if(legacy){memoryCache.delete(key);memoryCacheIncomplete.delete(key)}};
    legacyReq.onsuccess=()=>{legacy=legacyReq.result||null;finish()};rowsReq.onsuccess=()=>{rows=rowsReq.result||[];finish()};metaReq.onsuccess=()=>{meta=metaReq.result||null;finish()};
    legacyReq.onerror=rowsReq.onerror=metaReq.onerror=()=>{try{tx.abort()}catch(_){}};tx.oncomplete=()=>resolve(result||{candles:[],historyBoundaryReached:false,latestGapStatus:"pending"});tx.onerror=tx.onabort=()=>reject(tx.error||new Error("IndexedDB cache read/migration failed"))
   }).catch(error=>{
