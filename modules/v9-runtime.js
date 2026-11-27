@@ -84,6 +84,7 @@ function beginTransition(target){
  if(rotationTimer!==null){clearTimeout(rotationTimer);rotationTimer=null;}
  const symbolChanged=next.symbolIndex!==logoIndex,timeframeChanged=next.timeframe!==timeframe;
  app.classList.add("is-symbol-transitioning");
+ if(symbolChanged)app.classList.add("is-instrument-transitioning");
  if(symbolChanged)sendLogoSymbol(next.symbolIndex);
  transitionTimer=setTimeout(()=>{
   transitionTimer=null;
@@ -103,6 +104,7 @@ function beginTransition(target){
    }
   }
   app.classList.remove("is-symbol-transitioning");
+  app.classList.remove("is-instrument-transitioning");
   transitionTimer=setTimeout(()=>{
    transitionTimer=null;transitionActive=false;activeTarget=null;
    const queued=queuedTarget;queuedTarget=null;
@@ -137,7 +139,7 @@ function transitionToIndex(index){
  requestTransition({symbolIndex:normalized});
 }
 function startSymbolRotation(){if(destroyed||isRuntimeHidden())return;sendLogoState();scheduleSymbolRotation();}
-function stopSymbolRotation(){clearRotationTimers();transitionActive=false;activeTarget=null;queuedTarget=null;app.classList.remove("is-symbol-transitioning");}
+function stopSymbolRotation(){clearRotationTimers();transitionActive=false;activeTarget=null;queuedTarget=null;app.classList.remove("is-symbol-transitioning");app.classList.remove("is-instrument-transitioning");}
 async function refreshCardQuotes(){
  if(destroyed||isRuntimeHidden()||quoteBusy||typeof window.updateQuotes!=="function")return;
  quoteBusy=true;const abort=new AbortController();quoteAbort=abort;
