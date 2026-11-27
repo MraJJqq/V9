@@ -39,4 +39,4 @@ body{position:fixed;inset:0;overscroll-behavior:none}
 
 /* Drawing strokes follow the existing K-line symbol transition. */
 #v9-drawing-layer{opacity:1;transition:opacity 1.5s ease-in-out}
-#app.is-symbol-transitioning #v9-drawing-layer{opacity:0}
+#app.is-instrument-transitioning #v9-drawing-layer{opacity:0}
