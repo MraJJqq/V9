@@ -206,17 +206,37 @@ export function mountV9DrawingTools({app,onModeChange=()=>{}}){
   try{if(canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId);}catch(_){}
   finishActive();
  }
- bar.addEventListener("click",e=>{
-  const b=e.target.closest("button");if(!b)return;
+ function runToolbarAction(b){
+  if(!b||!bar.contains(b))return;
   if(b.dataset.action==="pen")setEnabled(!enabled);
-  if(b.dataset.action==="clear"){clearHold();active=null;strokes=[];save();redraw();}
+  if(b.dataset.action==="clear"){clearHold();active=null;activeId=null;strokes=[];save();redraw();}
+ }
+ // iOS may leave synthesized click targeting stale coordinates after orientation changes.
+ // Use the actual PointerEvent target and coordinates for touch/pen activation.
+ bar.addEventListener("pointerup",e=>{
+  if(e.button!==0||!e.isPrimary)return;
+  const b=e.target.closest("button");if(!b)return;
+  const r=b.getBoundingClientRect();
+  if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)return;
+  e.preventDefault();runToolbarAction(b);
+ });
+ // Keep keyboard and assistive-technology activation.
+ bar.addEventListener("click",e=>{
+  if(e.detail!==0)return;
+  runToolbarAction(e.target.closest("button"));
  });
  canvas.addEventListener("pointerdown",down);canvas.addEventListener("pointermove",move);
  canvas.addEventListener("pointerup",up);canvas.addEventListener("pointercancel",up);
  canvas.addEventListener("contextmenu",e=>e.preventDefault());
  const preventGesture=e=>e.preventDefault();document.addEventListener("gesturestart",preventGesture);document.addEventListener("gesturechange",preventGesture);
  const observer=new ResizeObserver(resize);observer.observe(app);resize();
- function refreshLayout(){if(!destroyed){resize();bar.getBoundingClientRect();}}
+ function refreshLayout(){
+  if(destroyed)return;
+  resize();
+  // Force a fresh layout read for the toolbar and both hit targets after iOS rotation.
+  bar.getBoundingClientRect();
+  for(const button of bar.querySelectorAll("button"))button.getBoundingClientRect();
+ }
  function destroy(){
   if(destroyed)return;destroyed=true;clearHold();if(active?.points?.length){strokes.push(active);save();}
   active=null;activeId=null;observer.disconnect();document.removeEventListener("gesturestart",preventGesture);document.removeEventListener("gesturechange",preventGesture);
