@@ -36,3 +36,7 @@ body{position:fixed;inset:0;overscroll-behavior:none}
 
 /* Bottom Vegas signals: position and safe-area geometry are owned by the full-screen system. */
 #bottom-signal{position:fixed!important;right:max(8px,var(--v9-safe-right))!important;bottom:var(--v9-safe-bottom)!important;z-index:1200!important;max-width:calc(100vw - 16px - var(--v9-safe-left) - var(--v9-safe-right));}
+
+/* Drawing strokes follow the existing K-line symbol transition. */
+#v9-drawing-layer{opacity:1;transition:opacity 1.5s ease-in-out}
+#app.is-symbol-transitioning #v9-drawing-layer{opacity:0}
