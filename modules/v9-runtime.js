@@ -97,7 +97,10 @@ function beginTransition(target){
   }
   if(symbolChanged||timeframeChanged){
    const item=sessionQueue[logoIndex];
-   if(item)void controller.select(item.symbol,GATE_CONTRACTS[item.symbol],timeframe);
+   if(item){
+    if(symbolChanged)drawingTools.setSymbol(item.symbol);
+    void controller.select(item.symbol,GATE_CONTRACTS[item.symbol],timeframe);
+   }
   }
   app.classList.remove("is-symbol-transitioning");
   transitionTimer=setTimeout(()=>{
