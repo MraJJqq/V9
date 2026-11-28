@@ -1,6 +1,6 @@
 import{createVegasEmaOverlay}from"./v9-vegas-ema.js?v=v9-local-kline-20261123-1";
 import{VIEWPORT_STORAGE_KEY,captureViewportState,normalizeViewportState,migrateLegacyViewportState,resolveViewportRight}from"./v9-viewport-state.js?v=v9-local-kline-20261123-1";
-export function createV9KlineView({host,onInteractionChange=()=>{},onViewChange=()=>{}}){
+export function createV9KlineView({host,onInteractionChange=()=>{}}){
 if(!host)throw new TypeError("K-line host element is required");
 const abort=new AbortController(),{signal}=abort,canvas=document.createElement("canvas");
 canvas.style.cssText="position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0;background:transparent;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none";host.appendChild(canvas);
@@ -30,7 +30,7 @@ function frame(){
  if(emaRange){mn=Math.min(mn,emaRange.min);mx=Math.max(mx,emaRange.max)}
  const m=(mx-mn)*.08||mn*.001;mn=Math.max(Number.MIN_VALUE,mn-m);mx+=m;
  if(!inited){lo=mn;hi=mx;inited=true}else{lo+=(mn-lo)*.3;hi+=(mx-hi)*.3;if(Math.abs(mn-lo)+Math.abs(mx-hi)>(mx-mn)*.002)ask();else{lo=mn;hi=mx}}
- draw(i0,i1);overlay.setView(viewport());onViewChange()
+ draw(i0,i1);overlay.setView(viewport())
 }
 function loop(t){raf=0;if(destroyed)return;const dt=Math.min(t-lastT,40)||16;lastT=t;if(Math.abs(vel)>.0004){const r0=right;setRight(right+vel*dt);if(right===r0)vel=0;vel*=Math.pow(.94,dt/16);ask()}else{if(vel!==0)saveViewport();vel=0;}frame()}
 function pos(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
@@ -46,33 +46,6 @@ canvas.addEventListener("pointerup",end,{signal});canvas.addEventListener("point
 canvas.addEventListener("wheel",e=>{e.preventDefault();if(e.deltaX===0&&e.deltaY===0)return;interaction("kline-wheel",true);if(wheelEndTimer!==null)clearTimeout(wheelEndTimer);wheelEndTimer=setTimeout(()=>{wheelEndTimer=null;interaction("kline-wheel",false)},350);if(Math.abs(e.deltaX)>Math.abs(e.deltaY)&&!e.ctrlKey)setRight(right+e.deltaX/barW);else{const x=pos(e).x,ai=iAt(x);barW=clamp(barW*Math.exp(-e.deltaY*(e.ctrlKey?.01:.0015)),MINW,MAXW);setRight(ai-.5+(W-x)/barW)}saveViewport();ask()},{passive:false,signal});
 canvas.addEventListener("touchmove",e=>e.preventDefault(),{passive:false,signal});canvas.addEventListener("contextmenu",e=>e.preventDefault(),{signal});["gesturestart","gesturechange","gestureend"].forEach(n=>canvas.addEventListener(n,e=>e.preventDefault(),{signal}));
 const observer=new ResizeObserver(resize);observer.observe(host);window.addEventListener("orientationchange",handleOrientationChange,{signal});if(screen.orientation?.addEventListener)screen.orientation.addEventListener("change",handleOrientationChange,{signal});window.addEventListener("pagehide",()=>{resetInteraction();persistViewport()},{signal});window.addEventListener("pageshow",resetInteraction,{signal});window.addEventListener("blur",resetInteraction,{signal});document.addEventListener("visibilitychange",()=>{if(document.hidden){resetInteraction();persistViewport()}else resetInteraction()},{signal});resize();
-
-function indexForTime(timestamp){
- if(!C.length||!Number.isFinite(timestamp))return null;
- let low=0,high=C.length-1;
- while(low<=high){const mid=(low+high)>>1,t=C[mid].t;if(t===timestamp)return mid;if(t<timestamp)low=mid+1;else high=mid-1;}
- if(high<0){const step=C.length>1?C[1].t-C[0].t:3600;return (timestamp-C[0].t)/step;}
- if(low>=C.length){const step=C.length>1?C.at(-1).t-C.at(-2).t:3600;return C.length-1+(timestamp-C.at(-1).t)/step;}
- const a=C[high],b=C[low];return high+(timestamp-a.t)/(b.t-a.t);
-}
-function timeForIndex(index){
- if(!C.length||!Number.isFinite(index))return null;
- if(index<=0){const step=C.length>1?C[1].t-C[0].t:3600;return C[0].t+index*step;}
- if(index>=C.length-1){const step=C.length>1?C.at(-1).t-C.at(-2).t:3600;return C.at(-1).t+(index-(C.length-1))*step;}
- const i=Math.floor(index),q=index-i;return C[i].t+(C[i+1].t-C[i].t)*q;
-}
-function toAnchor(clientX,clientY){
- if(!C.length||!(lo>0)||!(hi>lo))return null;
- const r=host.getBoundingClientRect(),x=clientX-r.left,y=clientY-r.top;
- const index=iAt(x),price=Math.exp(Math.log(hi)-(y-T0)/(H-T0-B)*(Math.log(hi)-Math.log(lo)));
- const t=timeForIndex(index);return Number.isFinite(t)&&Number.isFinite(price)&&price>0?{t,p:price}:null;
-}
-function fromAnchor(anchor,canvasRect){
- if(!C.length||!(lo>0)||!(hi>lo)||!Number.isFinite(anchor?.t)||!Number.isFinite(anchor?.p)||anchor.p<=0)return null;
- const index=indexForTime(anchor.t);if(!Number.isFinite(index))return null;
- const r=host.getBoundingClientRect(),clientX=r.left+xOf(index),clientY=r.top+T0+(Math.log(hi)-Math.log(anchor.p))/(Math.log(hi)-Math.log(lo))*(H-T0-B);
- return{x:clientX-canvasRect.left,y:clientY-canvasRect.top};
-}
 function setCandles(a){C=Array.isArray(a)?a:[];inited=false;vel=0;if(!C.length){right=0;lo=0;hi=1;ask();return;}if(viewportState){barW=viewportState.barW;const mapped=resolveViewportRight(C,viewportState,W);if(mapped!==null)right=mapped;else setRight(C.length-1+RIGHT_GAP_BARS);}else{setRight(C.length-1+RIGHT_GAP_BARS);saveViewport();}setRight(right);ask();}
 function setVegasEmaCandles(a,values=null){overlay.setCandles(a,values)}
 function setVegasEmaValues(values){overlay.setEmaValues(values)}
@@ -84,5 +57,5 @@ function setHistoryStatus(symbol,count,complete,state,error,timeframe="4H"){
  if(status==="request-failed")console.warn("[VEGAS V9] "+symbol+" history request failed; retained "+count+" cached/latest "+timeframe+" candles.",error||"");
 }
 function destroy(){if(destroyed)return;resetInteraction();persistViewport();destroyed=true;if(orientationFrame)cancelAnimationFrame(orientationFrame);orientationFrame=0;abort.abort();observer.disconnect();if(raf)cancelAnimationFrame(raf);overlay.destroy();canvas.remove();overlayCanvas.remove();C=[]}
-host.classList.add("is-ready");return Object.freeze({setCandles,setVegasEmaCandles,setVegasEmaValues,setHistoryStatus,migrateLegacyViewportKey,toAnchor,fromAnchor,get hasData(){return C.length>0&&lo>0&&hi>lo;},get barW(){return barW;},destroy})
+host.classList.add("is-ready");return Object.freeze({setCandles,setVegasEmaCandles,setVegasEmaValues,setHistoryStatus,migrateLegacyViewportKey,destroy})
 }
