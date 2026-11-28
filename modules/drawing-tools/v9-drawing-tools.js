@@ -9,7 +9,8 @@ export function mountV9DrawingTools({app,coordinateAdapter=null,onModeChange=()=
 
  let symbol="",enabled=false,dpr=Math.min(window.devicePixelRatio||1,2),strokes=[],active=null,activeId=null,destroyed=false,holdTimer=null,legacyAnchorPending=true;
  let viewW=1,viewH=1;
- const WIDTH=9,HOLD_MS=450,COLOR=[252,245,85];\n let currentWidth=WIDTH;
+ const WIDTH=9,HOLD_MS=450,COLOR=[252,245,85];
+ let currentWidth=WIDTH;
  const key=()=> "vegas-v9-drawings:"+encodeURIComponent(symbol);
  const validSymbol=s=>typeof s==="string"&&/^[A-Z0-9_:-]{2,40}$/.test(s);
  const brushCanvas=document.createElement("canvas"),brushCtx=brushCanvas.getContext("2d");
