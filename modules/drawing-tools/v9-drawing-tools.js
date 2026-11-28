@@ -1,5 +1,5 @@
 /* V9 drawing engine: crayon texture + pause-based shape recognition. */
-export function mountV9DrawingTools({app,coordinateAdapter=null,onModeChange=()=>{}}){
+export function mountV9DrawingTools({app,onModeChange=()=>{}}){
  if(!app)throw new TypeError("V9 drawing app root is required");
  const canvas=document.createElement("canvas");canvas.id="v9-drawing-layer";canvas.setAttribute("aria-label","交易图表绘图层");
  const ctx=canvas.getContext("2d",{alpha:true});
@@ -7,10 +7,9 @@ export function mountV9DrawingTools({app,coordinateAdapter=null,onModeChange=()=
  bar.innerHTML='<button type="button" data-action="pen" aria-pressed="false" aria-label="画笔">✏️</button><button type="button" data-action="clear" aria-label="清空">🗑︎</button>';
  app.append(canvas,bar);
 
- let symbol="",enabled=false,dpr=Math.min(window.devicePixelRatio||1,2),strokes=[],active=null,activeId=null,destroyed=false,holdTimer=null,legacyAnchorPending=true;
+ let symbol="",enabled=false,dpr=Math.min(window.devicePixelRatio||1,2),strokes=[],active=null,activeId=null,destroyed=false,holdTimer=null;
  let viewW=1,viewH=1;
  const WIDTH=9,HOLD_MS=450,COLOR=[252,245,85];
- let currentWidth=WIDTH;
  const key=()=> "vegas-v9-drawings:"+encodeURIComponent(symbol);
  const validSymbol=s=>typeof s==="string"&&/^[A-Z0-9_:-]{2,40}$/.test(s);
  const brushCanvas=document.createElement("canvas"),brushCtx=brushCanvas.getContext("2d");
@@ -67,8 +66,8 @@ export function mountV9DrawingTools({app,coordinateAdapter=null,onModeChange=()=
   brushCtx.globalCompositeOperation="source-over";
  }
  function line(a,b){
-  const dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy),step=Math.max(currentWidth*.25,1);
-  for(let t=0;t<=dist;t+=step){const q=dist?t/dist:0;stamp(a.x+dx*q,a.y+dy*q,currentWidth/2);}
+  const dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy),step=Math.max(WIDTH*.25,1);
+  for(let t=0;t<=dist;t+=step){const q=dist?t/dist:0;stamp(a.x+dx*q,a.y+dy*q,WIDTH/2);}
  }
  function poly(v,close=true){for(let i=1;i<v.length;i++)line(v[i-1],v[i]);if(close&&v.length>2)line(v[v.length-1],v[0]);}
  function ellipse(cx,cy,rx,ry){
@@ -84,30 +83,14 @@ export function mountV9DrawingTools({app,coordinateAdapter=null,onModeChange=()=
   for(const side of [.45,-.45]){const a=ang+Math.PI+side;line(T,{x:T.x+Math.cos(a)*head,y:T.y+Math.sin(a)*head});}
  }
  function drawStroke(s){
-  if(!s?.points?.length)return;
-  const previousWidth=currentWidth,zoomScale=s.baseBarW&&coordinateAdapter?.barW?coordinateAdapter.barW/s.baseBarW:1;
-  currentWidth=WIDTH*Math.max(.25,Math.min(4,zoomScale));
-  const rect=canvas.getBoundingClientRect();
-  const project=p=>p&&Number.isFinite(p.t)&&Number.isFinite(p.p)?(coordinateAdapter?.fromAnchor?.({t:p.t,p:p.p},rect)||p):p;
-  const p=s.points.map(project);
-  let shape=s.shape?{...s.shape}:null;
-  if(shape?.type==="line"){shape.a=project(shape.a);shape.b=project(shape.b);}
-  else if(shape?.type==="arrow"){
-   const a=project(shape.a),b=project(shape.b),control=project(shape.control);
-   if(a&&b&&control){const dx=b.x-a.x,dy=b.y-a.y,L=Math.hypot(dx,dy)||1,n={x:-dy/L,y:dx/L};shape={...shape,a,b,n,k:(control.x-(a.x+b.x)/2)*n.x+(control.y-(a.y+b.y)/2)*n.y,length:L};}
-   else{shape.a=a;shape.b=b;}
-  }else if(shape?.type==="rect"||shape?.type==="tri")shape.points=shape.points.map(project);
-  else if(shape?.type==="ellipse"&&shape.centerAnchor){
-   const c=project(shape.centerAnchor),x=project(shape.xRadiusAnchor),y=project(shape.yRadiusAnchor);
-   if(c&&x&&y)shape={...shape,cx:c.x,cy:c.y,rx:Math.abs(x.x-c.x),ry:Math.abs(y.y-c.y)};
-  }
+  const p=s.points;if(!p?.length)return;
+  const shape=s.shape;
   if(shape?.type==="line")line(shape.a,shape.b);
   else if(shape?.type==="arrow")arrow(shape.a,shape.b,shape.k,shape.n,shape.length);
   else if(shape?.type==="rect"||shape?.type==="tri")poly(shape.points);
   else if(shape?.type==="ellipse")ellipse(shape.cx,shape.cy,shape.rx,shape.ry);
-  else if(p.length===1)stamp(p[0].x,p[0].y,currentWidth/2);
+  else if(p.length===1)stamp(p[0].x,p[0].y,WIDTH/2);
   else for(let i=1;i<p.length;i++)line(p[i-1],p[i]);
-  currentWidth=previousWidth;
  }
  function redraw(){
   ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -115,43 +98,12 @@ export function mountV9DrawingTools({app,coordinateAdapter=null,onModeChange=()=
   for(const s of strokes)drawStroke(s);if(active)drawStroke(active);
   ctx.setTransform(1,0,0,1,0,0);
  }
- function anchorPoint(p){
-  if(!p||Number.isFinite(p.t)&&Number.isFinite(p.p))return;
-  const rect=canvas.getBoundingClientRect(),a=coordinateAdapter?.toAnchor?.(rect.left+p.x,rect.top+p.y);
-  if(a){p.t=a.t;p.p=a.p;}
- }
- function anchorStroke(s){
-  if(!s)return;
-  if(!Number.isFinite(s.baseBarW)&&coordinateAdapter?.barW)s.baseBarW=coordinateAdapter.barW;
-  (s.points||[]).forEach(anchorPoint);
-  const z=s.shape;if(!z)return;
-  if(z.type==="line"){anchorPoint(z.a);anchorPoint(z.b);}
-  else if(z.type==="arrow"){
-   anchorPoint(z.a);anchorPoint(z.b);
-   if(!z.control){const L=z.length||Math.hypot(z.b.x-z.a.x,z.b.y-z.a.y)||1,n=z.n||{x:-(z.b.y-z.a.y)/L,y:(z.b.x-z.a.x)/L};z.control={x:(z.a.x+z.b.x)/2+n.x*(z.k||0),y:(z.a.y+z.b.y)/2+n.y*(z.k||0)};}
-   anchorPoint(z.control);
-  }else if(z.type==="rect"||z.type==="tri")(z.points||[]).forEach(anchorPoint);
-  else if(z.type==="ellipse"&&!z.centerAnchor){
-   const rect=canvas.getBoundingClientRect(),at=(x,y)=>coordinateAdapter?.toAnchor?.(rect.left+x,rect.top+y);
-   z.centerAnchor=at(z.cx,z.cy);z.xRadiusAnchor=at(z.cx+z.rx,z.cy);z.yRadiusAnchor=at(z.cx,z.cy+z.ry);
-  }
- }
- function refreshAnchors(){
-  if(destroyed)return;
-  if(legacyAnchorPending&&coordinateAdapter?.hasData){
-   let changed=false;
-   for(const s of strokes){const before=JSON.stringify(s);anchorStroke(s);if(JSON.stringify(s)!==before)changed=true;}
-   legacyAnchorPending=false;
-   if(changed)save();
-  }
-  redraw();
- }
  function save(){if(!symbol)return;try{localStorage.setItem(key(),JSON.stringify(strokes));}catch(e){console.warn("[VEGAS V9 drawing] save failed",e);}}
  function clearHold(){if(holdTimer!==null){clearTimeout(holdTimer);holdTimer=null;}}
- function finishActive(){clearHold();if(active?.points?.length){anchorStroke(active);strokes.push(active);save();}active=null;activeId=null;}
+ function finishActive(){clearHold();if(active?.points?.length){strokes.push(active);save();}active=null;activeId=null;}
  function resize(){
   const rect=app.getBoundingClientRect(),nextDpr=Math.min(window.devicePixelRatio||1,2),w=Math.max(1,rect.width),h=Math.max(1,rect.height);
-  if(viewW!==w||viewH!==h){const sx=w/viewW,sy=h/viewH;const scalePoint=p=>({...p,x:p.x*sx,y:p.y*sy});
+  if(viewW!==w||viewH!==h){const sx=w/viewW,sy=h/viewH;const scalePoint=p=>({x:p.x*sx,y:p.y*sy});
    const scaleShape=s=>{if(!s)return s;const z={...s};for(const k of ["a","b"])if(z[k])z[k]=scalePoint(z[k]);if(z.points)z.points=z.points.map(scalePoint);if(z.type==="ellipse"){z.cx*=sx;z.cy*=sy;z.rx*=sx;z.ry*=sy;}if(z.type==="arrow"){z.k*=Math.hypot(sx,sy)/Math.SQRT2;z.length*=Math.hypot(sx,sy)/Math.SQRT2;}return z;};
    strokes=strokes.map(s=>({...s,points:s.points.map(scalePoint),shape:scaleShape(s.shape)}));
    if(active)active={...active,points:active.points.map(scalePoint),shape:scaleShape(active.shape)};
@@ -161,7 +113,7 @@ export function mountV9DrawingTools({app,coordinateAdapter=null,onModeChange=()=
   canvas.style.width=w+"px";canvas.style.height=h+"px";brushKey="";redraw();
  }
  function load(next){
-  clearHold();active=null;legacyAnchorPending=true;symbol=validSymbol(next)?next:"";
+  clearHold();active=null;symbol=validSymbol(next)?next:"";
   try{const data=symbol?JSON.parse(localStorage.getItem(key())||"[]"):[];strokes=Array.isArray(data)?data.filter(s=>Array.isArray(s.points)&&s.points.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y))):[];}
   catch(_){strokes=[];}
   redraw();
@@ -291,5 +243,5 @@ export function mountV9DrawingTools({app,coordinateAdapter=null,onModeChange=()=
   canvas.removeEventListener("pointerdown",down);canvas.removeEventListener("pointermove",move);canvas.removeEventListener("pointerup",up);canvas.removeEventListener("pointercancel",up);
   canvas.remove();bar.remove();onModeChange(false);
  }
- return Object.freeze({setSymbol:load,refreshLayout,refreshAnchors,destroy,get enabled(){return enabled;}});
+ return Object.freeze({setSymbol:load,refreshLayout,destroy,get enabled(){return enabled;}});
 }
