@@ -1,5 +1,5 @@
 /* V9 drawing engine: crayon texture + pause-based shape recognition. */
-export function mountV9DrawingTools({app,onModeChange=()=>{}}){
+export function mountV9DrawingTools({app,coordinateAdapter=null,onModeChange=()=>{}}){
  if(!app)throw new TypeError("V9 drawing app root is required");
  const canvas=document.createElement("canvas");canvas.id="v9-drawing-layer";canvas.setAttribute("aria-label","交易图表绘图层");
  const ctx=canvas.getContext("2d",{alpha:true});
@@ -83,8 +83,21 @@ export function mountV9DrawingTools({app,onModeChange=()=>{}}){
   for(const side of [.45,-.45]){const a=ang+Math.PI+side;line(T,{x:T.x+Math.cos(a)*head,y:T.y+Math.sin(a)*head});}
  }
  function drawStroke(s){
-  const p=s.points;if(!p?.length)return;
-  const shape=s.shape;
+  if(!s?.points?.length)return;
+  const rect=canvas.getBoundingClientRect();
+  const project=p=>p&&Number.isFinite(p.t)&&Number.isFinite(p.p)?(coordinateAdapter?.fromAnchor?.({t:p.t,p:p.p},rect)||p):p;
+  const p=s.points.map(project);
+  let shape=s.shape?{...s.shape}:null;
+  if(shape?.type==="line"){shape.a=project(shape.a);shape.b=project(shape.b);}
+  else if(shape?.type==="arrow"){
+   const a=project(shape.a),b=project(shape.b),control=project(shape.control);
+   if(a&&b&&control){const dx=b.x-a.x,dy=b.y-a.y,L=Math.hypot(dx,dy)||1,n={x:-dy/L,y:dx/L};shape={...shape,a,b,n,k:(control.x-(a.x+b.x)/2)*n.x+(control.y-(a.y+b.y)/2)*n.y,length:L};}
+   else{shape.a=a;shape.b=b;}
+  }else if(shape?.type==="rect"||shape?.type==="tri")shape.points=shape.points.map(project);
+  else if(shape?.type==="ellipse"&&shape.centerAnchor){
+   const c=project(shape.centerAnchor),x=project(shape.xRadiusAnchor),y=project(shape.yRadiusAnchor);
+   if(c&&x&&y)shape={...shape,cx:c.x,cy:c.y,rx:Math.abs(x.x-c.x),ry:Math.abs(y.y-c.y)};
+  }
   if(shape?.type==="line")line(shape.a,shape.b);
   else if(shape?.type==="arrow")arrow(shape.a,shape.b,shape.k,shape.n,shape.length);
   else if(shape?.type==="rect"||shape?.type==="tri")poly(shape.points);
@@ -98,9 +111,36 @@ export function mountV9DrawingTools({app,onModeChange=()=>{}}){
   for(const s of strokes)drawStroke(s);if(active)drawStroke(active);
   ctx.setTransform(1,0,0,1,0,0);
  }
+ function anchorPoint(p){
+  if(!p||Number.isFinite(p.t)&&Number.isFinite(p.p))return;
+  const rect=canvas.getBoundingClientRect(),a=coordinateAdapter?.toAnchor?.(rect.left+p.x,rect.top+p.y);
+  if(a){p.t=a.t;p.p=a.p;}
+ }
+ function anchorStroke(s){
+  if(!s)return;
+  (s.points||[]).forEach(anchorPoint);
+  const z=s.shape;if(!z)return;
+  if(z.type==="line"){anchorPoint(z.a);anchorPoint(z.b);}
+  else if(z.type==="arrow"){
+   anchorPoint(z.a);anchorPoint(z.b);
+   if(!z.control){const L=z.length||Math.hypot(z.b.x-z.a.x,z.b.y-z.a.y)||1,n=z.n||{x:-(z.b.y-z.a.y)/L,y:(z.b.x-z.a.x)/L};z.control={x:(z.a.x+z.b.x)/2+n.x*(z.k||0),y:(z.a.y+z.b.y)/2+n.y*(z.k||0)};}
+   anchorPoint(z.control);
+  }else if(z.type==="rect"||z.type==="tri")(z.points||[]).forEach(anchorPoint);
+  else if(z.type==="ellipse"&&!z.centerAnchor){
+   const rect=canvas.getBoundingClientRect(),at=(x,y)=>coordinateAdapter?.toAnchor?.(rect.left+x,rect.top+y);
+   z.centerAnchor=at(z.cx,z.cy);z.xRadiusAnchor=at(z.cx+z.rx,z.cy);z.yRadiusAnchor=at(z.cx,z.cy+z.ry);
+  }
+ }
+ function refreshAnchors(){
+  if(destroyed)return;
+  let changed=false;
+  for(const s of strokes){const before=JSON.stringify(s);anchorStroke(s);if(JSON.stringify(s)!==before)changed=true;}
+  if(changed)save();
+  redraw();
+ }
  function save(){if(!symbol)return;try{localStorage.setItem(key(),JSON.stringify(strokes));}catch(e){console.warn("[VEGAS V9 drawing] save failed",e);}}
  function clearHold(){if(holdTimer!==null){clearTimeout(holdTimer);holdTimer=null;}}
- function finishActive(){clearHold();if(active?.points?.length){strokes.push(active);save();}active=null;activeId=null;}
+ function finishActive(){clearHold();if(active?.points?.length){anchorStroke(active);strokes.push(active);save();}active=null;activeId=null;}
  function resize(){
   const rect=app.getBoundingClientRect(),nextDpr=Math.min(window.devicePixelRatio||1,2),w=Math.max(1,rect.width),h=Math.max(1,rect.height);
   if(viewW!==w||viewH!==h){const sx=w/viewW,sy=h/viewH;const scalePoint=p=>({x:p.x*sx,y:p.y*sy});
@@ -243,5 +283,5 @@ export function mountV9DrawingTools({app,onModeChange=()=>{}}){
   canvas.removeEventListener("pointerdown",down);canvas.removeEventListener("pointermove",move);canvas.removeEventListener("pointerup",up);canvas.removeEventListener("pointercancel",up);
   canvas.remove();bar.remove();onModeChange(false);
  }
- return Object.freeze({setSymbol:load,refreshLayout,destroy,get enabled(){return enabled;}});
+ return Object.freeze({setSymbol:load,refreshLayout,refreshAnchors,destroy,get enabled(){return enabled;}});
 }
