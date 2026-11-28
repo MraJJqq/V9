@@ -9,7 +9,7 @@ export function mountV9DrawingTools({app,coordinateAdapter=null,onModeChange=()=
 
  let symbol="",enabled=false,dpr=Math.min(window.devicePixelRatio||1,2),strokes=[],active=null,activeId=null,destroyed=false,holdTimer=null,legacyAnchorPending=true;
  let viewW=1,viewH=1;
- const WIDTH=9,HOLD_MS=450,COLOR=[252,245,85];
+ const WIDTH=9,HOLD_MS=450,COLOR=[252,245,85];\n let currentWidth=WIDTH;
  const key=()=> "vegas-v9-drawings:"+encodeURIComponent(symbol);
  const validSymbol=s=>typeof s==="string"&&/^[A-Z0-9_:-]{2,40}$/.test(s);
  const brushCanvas=document.createElement("canvas"),brushCtx=brushCanvas.getContext("2d");
@@ -66,8 +66,8 @@ export function mountV9DrawingTools({app,coordinateAdapter=null,onModeChange=()=
   brushCtx.globalCompositeOperation="source-over";
  }
  function line(a,b){
-  const dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy),step=Math.max(WIDTH*.25,1);
-  for(let t=0;t<=dist;t+=step){const q=dist?t/dist:0;stamp(a.x+dx*q,a.y+dy*q,WIDTH/2);}
+  const dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy),step=Math.max(currentWidth*.25,1);
+  for(let t=0;t<=dist;t+=step){const q=dist?t/dist:0;stamp(a.x+dx*q,a.y+dy*q,currentWidth/2);}
  }
  function poly(v,close=true){for(let i=1;i<v.length;i++)line(v[i-1],v[i]);if(close&&v.length>2)line(v[v.length-1],v[0]);}
  function ellipse(cx,cy,rx,ry){
@@ -84,6 +84,8 @@ export function mountV9DrawingTools({app,coordinateAdapter=null,onModeChange=()=
  }
  function drawStroke(s){
   if(!s?.points?.length)return;
+  const previousWidth=currentWidth,zoomScale=s.baseBarW&&coordinateAdapter?.barW?coordinateAdapter.barW/s.baseBarW:1;
+  currentWidth=WIDTH*Math.max(.25,Math.min(4,zoomScale));
   const rect=canvas.getBoundingClientRect();
   const project=p=>p&&Number.isFinite(p.t)&&Number.isFinite(p.p)?(coordinateAdapter?.fromAnchor?.({t:p.t,p:p.p},rect)||p):p;
   const p=s.points.map(project);
@@ -102,8 +104,9 @@ export function mountV9DrawingTools({app,coordinateAdapter=null,onModeChange=()=
   else if(shape?.type==="arrow")arrow(shape.a,shape.b,shape.k,shape.n,shape.length);
   else if(shape?.type==="rect"||shape?.type==="tri")poly(shape.points);
   else if(shape?.type==="ellipse")ellipse(shape.cx,shape.cy,shape.rx,shape.ry);
-  else if(p.length===1)stamp(p[0].x,p[0].y,WIDTH/2);
+  else if(p.length===1)stamp(p[0].x,p[0].y,currentWidth/2);
   else for(let i=1;i<p.length;i++)line(p[i-1],p[i]);
+  currentWidth=previousWidth;
  }
  function redraw(){
   ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -118,6 +121,7 @@ export function mountV9DrawingTools({app,coordinateAdapter=null,onModeChange=()=
  }
  function anchorStroke(s){
   if(!s)return;
+  if(!Number.isFinite(s.baseBarW)&&coordinateAdapter?.barW)s.baseBarW=coordinateAdapter.barW;
   (s.points||[]).forEach(anchorPoint);
   const z=s.shape;if(!z)return;
   if(z.type==="line"){anchorPoint(z.a);anchorPoint(z.b);}
