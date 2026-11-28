@@ -38,8 +38,9 @@ function setInteractionLock(source,active){
  if(interactionLocks.size||interactionResumeTimer!==null||transitionActive)return;
  interactionResumeTimer=setTimeout(()=>{interactionResumeTimer=null;if(!destroyed&&!isRuntimeHidden()&&!interactionLocks.size&&!userRotationPaused)scheduleSymbolRotation();},0);
 }
-const view=createV9KlineView({host:klineHost,onInteractionChange:setInteractionLock});
-const drawingTools=mountV9DrawingTools({app,onModeChange:active=>setInteractionLock("drawing-tools",active)});
+let drawingTools=null;
+const view=createV9KlineView({host:klineHost,onInteractionChange:setInteractionLock,onViewChange:()=>drawingTools?.refreshAnchors()});
+drawingTools=mountV9DrawingTools({app,coordinateAdapter:view,onModeChange:active=>setInteractionLock("drawing-tools",active)});
 let drawingLayoutRefresh=null,drawingLayoutRefreshSecond=null;
 function refreshDrawingLayout(){
  if(destroyed)return;
