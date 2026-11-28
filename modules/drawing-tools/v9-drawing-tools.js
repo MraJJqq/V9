@@ -151,7 +151,7 @@ export function mountV9DrawingTools({app,coordinateAdapter=null,onModeChange=()=
  function finishActive(){clearHold();if(active?.points?.length){anchorStroke(active);strokes.push(active);save();}active=null;activeId=null;}
  function resize(){
   const rect=app.getBoundingClientRect(),nextDpr=Math.min(window.devicePixelRatio||1,2),w=Math.max(1,rect.width),h=Math.max(1,rect.height);
-  if(viewW!==w||viewH!==h){const sx=w/viewW,sy=h/viewH;const scalePoint=p=>({x:p.x*sx,y:p.y*sy});
+  if(viewW!==w||viewH!==h){const sx=w/viewW,sy=h/viewH;const scalePoint=p=>({...p,x:p.x*sx,y:p.y*sy});
    const scaleShape=s=>{if(!s)return s;const z={...s};for(const k of ["a","b"])if(z[k])z[k]=scalePoint(z[k]);if(z.points)z.points=z.points.map(scalePoint);if(z.type==="ellipse"){z.cx*=sx;z.cy*=sy;z.rx*=sx;z.ry*=sy;}if(z.type==="arrow"){z.k*=Math.hypot(sx,sy)/Math.SQRT2;z.length*=Math.hypot(sx,sy)/Math.SQRT2;}return z;};
    strokes=strokes.map(s=>({...s,points:s.points.map(scalePoint),shape:scaleShape(s.shape)}));
    if(active)active={...active,points:active.points.map(scalePoint),shape:scaleShape(active.shape)};
