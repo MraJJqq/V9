@@ -7,7 +7,7 @@ export function mountV9DrawingTools({app,coordinateAdapter=null,onModeChange=()=
  bar.innerHTML='<button type="button" data-action="pen" aria-pressed="false" aria-label="画笔">✏️</button><button type="button" data-action="clear" aria-label="清空">🗑︎</button>';
  app.append(canvas,bar);
 
- let symbol="",enabled=false,dpr=Math.min(window.devicePixelRatio||1,2),strokes=[],active=null,activeId=null,destroyed=false,holdTimer=null;
+ let symbol="",enabled=false,dpr=Math.min(window.devicePixelRatio||1,2),strokes=[],active=null,activeId=null,destroyed=false,holdTimer=null,legacyAnchorPending=true;
  let viewW=1,viewH=1;
  const WIDTH=9,HOLD_MS=450,COLOR=[252,245,85];
  const key=()=> "vegas-v9-drawings:"+encodeURIComponent(symbol);
@@ -133,9 +133,12 @@ export function mountV9DrawingTools({app,coordinateAdapter=null,onModeChange=()=
  }
  function refreshAnchors(){
   if(destroyed)return;
-  let changed=false;
-  for(const s of strokes){const before=JSON.stringify(s);anchorStroke(s);if(JSON.stringify(s)!==before)changed=true;}
-  if(changed)save();
+  if(legacyAnchorPending&&coordinateAdapter?.hasData){
+   let changed=false;
+   for(const s of strokes){const before=JSON.stringify(s);anchorStroke(s);if(JSON.stringify(s)!==before)changed=true;}
+   legacyAnchorPending=false;
+   if(changed)save();
+  }
   redraw();
  }
  function save(){if(!symbol)return;try{localStorage.setItem(key(),JSON.stringify(strokes));}catch(e){console.warn("[VEGAS V9 drawing] save failed",e);}}
@@ -153,7 +156,7 @@ export function mountV9DrawingTools({app,coordinateAdapter=null,onModeChange=()=
   canvas.style.width=w+"px";canvas.style.height=h+"px";brushKey="";redraw();
  }
  function load(next){
-  clearHold();active=null;symbol=validSymbol(next)?next:"";
+  clearHold();active=null;legacyAnchorPending=true;symbol=validSymbol(next)?next:"";
   try{const data=symbol?JSON.parse(localStorage.getItem(key())||"[]"):[];strokes=Array.isArray(data)?data.filter(s=>Array.isArray(s.points)&&s.points.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y))):[];}
   catch(_){strokes=[];}
   redraw();
