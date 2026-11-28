@@ -84,5 +84,5 @@ function setHistoryStatus(symbol,count,complete,state,error,timeframe="4H"){
  if(status==="request-failed")console.warn("[VEGAS V9] "+symbol+" history request failed; retained "+count+" cached/latest "+timeframe+" candles.",error||"");
 }
 function destroy(){if(destroyed)return;resetInteraction();persistViewport();destroyed=true;if(orientationFrame)cancelAnimationFrame(orientationFrame);orientationFrame=0;abort.abort();observer.disconnect();if(raf)cancelAnimationFrame(raf);overlay.destroy();canvas.remove();overlayCanvas.remove();C=[]}
-host.classList.add("is-ready");return Object.freeze({setCandles,setVegasEmaCandles,setVegasEmaValues,setHistoryStatus,migrateLegacyViewportKey,toAnchor,fromAnchor,destroy})
+host.classList.add("is-ready");return Object.freeze({setCandles,setVegasEmaCandles,setVegasEmaValues,setHistoryStatus,migrateLegacyViewportKey,toAnchor,fromAnchor,get hasData(){return C.length>0&&lo>0&&hi>lo;},destroy})
 }
